@@ -18,6 +18,11 @@ public partial class MainWindow : Window
         Loaded += OnMainWindowLoaded;
         KeyDown += OnMainWindowKeyDown;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        if (Resources["PackageContextMenu"] is ContextMenu cm)
+        {
+            cm.DataContext = ViewModel;
+        }
     }
 
     private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
@@ -154,6 +159,20 @@ public partial class MainWindow : Window
         {
             item.IsSelected = true;
             item.Focus();
+        }
+    }
+
+    private void OnListViewContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (ViewModel.SelectedItem == null)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (Resources["PackageContextMenu"] is ContextMenu cm)
+        {
+            cm.DataContext = ViewModel;
         }
     }
 
