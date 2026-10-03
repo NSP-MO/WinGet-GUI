@@ -31,6 +31,9 @@
         <conv:TabIndexToVisibilityConverter x:Key="Tab1Vis" TargetIndex="1" />
         <conv:TabIndexToVisibilityConverter x:Key="Tab2Vis" TargetIndex="2" />
         <conv:TabIndexToVisibilityConverter x:Key="NotTab2Vis" TargetIndex="2" Invert="True" />
+        <conv:TabIndexToBoolConverter x:Key="Tab0Checked" TargetIndex="0" />
+        <conv:TabIndexToBoolConverter x:Key="Tab1Checked" TargetIndex="1" />
+        <conv:TabIndexToBoolConverter x:Key="Tab2Checked" TargetIndex="2" />
 
         <!-- GridViewColumnHeader Dark Style -->
         <Style TargetType="{x:Type GridViewColumnHeader}">
@@ -251,18 +254,21 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Orientation="Horizontal" Margin="6,0">
-                    <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab0Vis}, Mode=OneWay}"
+                    <RadioButton GroupName="NavTabs"
+                                 IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab0Checked}}"
                                  Click="OnTabInstalledChecked"
                                  Style="{StaticResource TabHeaderButtonStyle}">
                         <TextBlock Text="{Binding InstalledTabTitle}" />
                     </RadioButton>
-                    <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}, Mode=OneWay}"
+                    <RadioButton GroupName="NavTabs"
+                                 IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab1Checked}}"
                                  Click="OnTabUpdatesChecked"
                                  Style="{StaticResource TabHeaderButtonStyle}">
                         <TextBlock Text="{Binding UpdatesTabTitle}" />
                     </RadioButton>
-                    <RadioButton Content="Discover &amp; Install"
-                                 IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab2Vis}, Mode=OneWay}"
+                    <RadioButton GroupName="NavTabs"
+                                 Content="Discover &amp; Install"
+                                 IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab2Checked}}"
                                  Click="OnTabDiscoverChecked"
                                  Style="{StaticResource TabHeaderButtonStyle}" />
                 </StackPanel>

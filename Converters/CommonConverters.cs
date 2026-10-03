@@ -47,10 +47,52 @@ public class TabIndexToVisibilityConverter : IValueConverter
             bool match = idx == TargetIndex;
             bool shouldInvert = Invert || (parameter is string paramStr && paramStr.Equals("invert", StringComparison.OrdinalIgnoreCase));
             if (shouldInvert) match = !match;
+
+            if (targetType == typeof(bool) || targetType == typeof(bool?))
+            {
+                return match;
+            }
+
             return match ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        if (targetType == typeof(bool) || targetType == typeof(bool?))
+        {
+            return false;
+        }
+
         return Visibility.Collapsed;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool b && b)
+        {
+            return TargetIndex;
+        }
+        return Binding.DoNothing;
+    }
+}
+
+public class TabIndexToBoolConverter : IValueConverter
+{
+    public int TargetIndex { get; set; }
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int idx)
+        {
+            return idx == TargetIndex;
+        }
+        return false;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool b && b)
+        {
+            return TargetIndex;
+        }
+        return Binding.DoNothing;
+    }
 }
