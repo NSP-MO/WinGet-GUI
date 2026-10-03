@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using WingetGui.Services;
 using WingetGui.ViewModels;
 
 namespace WingetGui;
@@ -267,8 +268,19 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OnCopyDetailsClick(object sender, RoutedEventArgs e)
+    private async void OnCopyDetailsClick(object sender, RoutedEventArgs e)
     {
-        Clipboard.SetText(ViewModel.DetailsContent);
+        if (string.IsNullOrWhiteSpace(ViewModel.DetailsContent)) return;
+
+        bool success = ClipboardService.TrySetText(ViewModel.DetailsContent);
+        if (success && sender is Button btn)
+        {
+            var originalContent = btn.Content;
+            btn.Content = "Copied!";
+            btn.IsEnabled = false;
+            await Task.Delay(1200);
+            btn.Content = originalContent;
+            btn.IsEnabled = true;
+        }
     }
 }

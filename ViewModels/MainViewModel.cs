@@ -442,7 +442,7 @@ public partial class MainViewModel : ObservableObject
         var item = param as PackageItem ?? SelectedItem;
         if (item == null) return;
 
-        Clipboard.SetText(item.Id);
+        ClipboardService.TrySetText(item.Id);
     }
 
     [RelayCommand]
