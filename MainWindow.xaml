@@ -30,6 +30,7 @@
         <conv:TabIndexToVisibilityConverter x:Key="Tab0Vis" TargetIndex="0" />
         <conv:TabIndexToVisibilityConverter x:Key="Tab1Vis" TargetIndex="1" />
         <conv:TabIndexToVisibilityConverter x:Key="Tab2Vis" TargetIndex="2" />
+        <conv:TabIndexToVisibilityConverter x:Key="NotTab2Vis" TargetIndex="2" Invert="True" />
 
         <!-- GridViewColumnHeader Dark Style -->
         <Style TargetType="{x:Type GridViewColumnHeader}">
@@ -489,19 +490,55 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="OnlineSearchBox"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="{StaticResource BrushCard}"
-                                 Foreground="{StaticResource BrushTextPrimary}"
-                                 BorderBrush="{StaticResource BrushBorderLight}"
-                                 BorderThickness="1"
-                                 Padding="8,5"
-                                 FontSize="12"
-                                 KeyDown="OnOnlineSearchKeyDown" />
+
+                        <Border Grid.Column="0"
+                                Background="{StaticResource BrushCard}"
+                                BorderBrush="{StaticResource BrushBorderLight}"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Height="28">
+                            <Grid>
+                                <!-- Watermark text -->
+                                <TextBlock Text="Search packages by name, ID, or tag in winget repository..."
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           FontSize="12"
+                                           Margin="8,0,24,0"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding OnlineSearchText, Converter={StaticResource StringNotEmptyToVis}, ConverterParameter=invert}" />
+
+                                <!-- Search Input Box -->
+                                <TextBox x:Name="OnlineSearchBox"
+                                         Text="{Binding OnlineSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="Transparent"
+                                         Foreground="{StaticResource BrushTextPrimary}"
+                                         CaretBrush="{StaticResource BrushTextPrimary}"
+                                         BorderThickness="0"
+                                         Padding="8,0,24,0"
+                                         FontSize="12"
+                                         VerticalContentAlignment="Center"
+                                         KeyDown="OnOnlineSearchKeyDown" />
+
+                                <!-- Clear button -->
+                                <Button Content="✕"
+                                        Command="{Binding ClearOnlineSearchCommand}"
+                                        Background="Transparent"
+                                        Foreground="{StaticResource BrushTextMuted}"
+                                        BorderThickness="0"
+                                        Padding="6,0"
+                                        FontSize="11"
+                                        HorizontalAlignment="Right"
+                                        Cursor="Hand"
+                                        Visibility="{Binding OnlineSearchText, Converter={StaticResource StringNotEmptyToVis}}" />
+                            </Grid>
+                        </Border>
+
                         <Button Grid.Column="1"
                                 Content="Search Store / Winget"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Margin="8,0,0,0"
+                                Padding="12,0"
+                                Height="28"
                                 Command="{Binding SearchOnlineCommand}" />
                     </Grid>
                 </Border>
@@ -574,7 +611,8 @@
                 Background="{StaticResource BrushHeader}"
                 BorderBrush="{StaticResource BrushBorder}"
                 BorderThickness="0,1,0,0"
-                Padding="6,4">
+                Padding="6,4"
+                Visibility="{Binding SelectedTabIndex, Converter={StaticResource NotTab2Vis}}">
             <Border Background="{StaticResource BrushCanvas}"
                     BorderBrush="{StaticResource BrushBorderLight}"
                     BorderThickness="1"

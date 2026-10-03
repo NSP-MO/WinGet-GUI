@@ -27,7 +27,8 @@ public class StringNotEmptyToVisibilityConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         bool hasText = !string.IsNullOrWhiteSpace(value as string);
-        if (Invert) hasText = !hasText;
+        bool shouldInvert = Invert || (parameter is string paramStr && paramStr.Equals("invert", StringComparison.OrdinalIgnoreCase));
+        if (shouldInvert) hasText = !hasText;
         return hasText ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -37,12 +38,16 @@ public class StringNotEmptyToVisibilityConverter : IValueConverter
 public class TabIndexToVisibilityConverter : IValueConverter
 {
     public int TargetIndex { get; set; }
+    public bool Invert { get; set; }
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is int idx)
         {
-            return idx == TargetIndex ? Visibility.Visible : Visibility.Collapsed;
+            bool match = idx == TargetIndex;
+            bool shouldInvert = Invert || (parameter is string paramStr && paramStr.Equals("invert", StringComparison.OrdinalIgnoreCase));
+            if (shouldInvert) match = !match;
+            return match ? Visibility.Visible : Visibility.Collapsed;
         }
         return Visibility.Collapsed;
     }

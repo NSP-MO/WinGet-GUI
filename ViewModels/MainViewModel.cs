@@ -28,6 +28,9 @@ public partial class MainViewModel : ObservableObject
     private string _searchText = string.Empty;
 
     [ObservableProperty]
+    private string _onlineSearchText = string.Empty;
+
+    [ObservableProperty]
     private int _selectedTabIndex = 0;
 
     [ObservableProperty]
@@ -238,14 +241,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task SearchOnlineAsync()
     {
-        if (string.IsNullOrWhiteSpace(SearchText)) return;
+        var query = !string.IsNullOrWhiteSpace(OnlineSearchText) ? OnlineSearchText : SearchText;
+        if (string.IsNullOrWhiteSpace(query)) return;
 
         IsLoading = true;
-        LoadingStatus = $"Searching winget repository for \"{SearchText}\"...";
+        LoadingStatus = $"Searching winget repository for \"{query}\"...";
 
         try
         {
-            var results = await _wingetService.SearchPackagesAsync(SearchText, 40);
+            var results = await _wingetService.SearchPackagesAsync(query, 40);
             SearchResults.Clear();
             foreach (var res in results)
             {
@@ -509,6 +513,12 @@ public partial class MainViewModel : ObservableObject
     public void ClearSearch()
     {
         SearchText = string.Empty;
+    }
+
+    [RelayCommand]
+    public void ClearOnlineSearch()
+    {
+        OnlineSearchText = string.Empty;
     }
 
     [RelayCommand]

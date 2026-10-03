@@ -88,8 +88,16 @@ public partial class MainWindow : Window
             }
             else if (e.Key == Key.F)
             {
-                QuickSearchBox.Focus();
-                QuickSearchBox.SelectAll();
+                if (ViewModel.SelectedTabIndex == 2)
+                {
+                    OnlineSearchBox.Focus();
+                    OnlineSearchBox.SelectAll();
+                }
+                else
+                {
+                    QuickSearchBox.Focus();
+                    QuickSearchBox.SelectAll();
+                }
                 e.Handled = true;
             }
             else if (e.Key == Key.E)
@@ -198,6 +206,11 @@ public partial class MainWindow : Window
             ViewModel.SearchOnlineCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.Key == Key.Escape)
+        {
+            ViewModel.OnlineSearchText = string.Empty;
+            e.Handled = true;
+        }
     }
 
     private void OnMenuExitClick(object sender, RoutedEventArgs e)
@@ -227,6 +240,11 @@ public partial class MainWindow : Window
     private void OnViewDiscoverClick(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTabIndex = 2;
+        Dispatcher.BeginInvoke(() =>
+        {
+            OnlineSearchBox.Focus();
+            OnlineSearchBox.SelectAll();
+        });
     }
 
     private void OnTabInstalledChecked(object sender, RoutedEventArgs e)
@@ -242,6 +260,11 @@ public partial class MainWindow : Window
     private void OnTabDiscoverChecked(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTabIndex = 2;
+        Dispatcher.BeginInvoke(() =>
+        {
+            OnlineSearchBox.Focus();
+            OnlineSearchBox.SelectAll();
+        });
     }
 
     private void OnCopyDetailsClick(object sender, RoutedEventArgs e)
