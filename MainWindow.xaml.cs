@@ -17,11 +17,49 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += OnMainWindowLoaded;
         KeyDown += OnMainWindowKeyDown;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
     {
         await ViewModel.InitializeAsync();
+        AutoFitColumns();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.UpgradesCount) ||
+            e.PropertyName == nameof(MainViewModel.InstalledPackages) ||
+            (e.PropertyName == nameof(MainViewModel.IsLoading) && !ViewModel.IsLoading))
+        {
+            Dispatcher.InvokeAsync(AutoFitColumns, System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    private void AutoFitColumns()
+    {
+        if (InstalledListView?.View is GridView gv)
+        {
+            foreach (var col in gv.Columns)
+            {
+                if (double.IsNaN(col.Width))
+                {
+                    col.Width = col.ActualWidth;
+                    col.Width = double.NaN;
+                }
+            }
+        }
+        if (UpdatesListView?.View is GridView ugv)
+        {
+            foreach (var col in ugv.Columns)
+            {
+                if (double.IsNaN(col.Width))
+                {
+                    col.Width = col.ActualWidth;
+                    col.Width = double.NaN;
+                }
+            }
+        }
     }
 
     private void OnMainWindowKeyDown(object sender, KeyEventArgs e)

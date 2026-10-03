@@ -9,7 +9,7 @@
         mc:Ignorable="d"
         Title="WinGet GUI"
         Icon="assets/app.ico"
-        Height="720" Width="760"
+        Height="720" Width="780"
         MinHeight="480" MinWidth="680"
         Background="{StaticResource BrushCanvas}"
         Foreground="{StaticResource BrushTextPrimary}"
@@ -293,7 +293,7 @@
                 <ListView.View>
                     <GridView>
                         <!-- Column: Program Name + Icon + Arch -->
-                        <GridViewColumn Header="Program Name" Width="350">
+                        <GridViewColumn Header="Program Name" Width="300">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -317,24 +317,44 @@
                         </GridViewColumn>
 
                         <!-- Column: Version / Upgrade Badge -->
-                        <GridViewColumn Header="Version" Width="110">
+                        <GridViewColumn x:Name="InstalledVersionColumn" Header="Version" Width="170">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Version}"
+                                                   ToolTip="{Binding Version}"
                                                    Foreground="{StaticResource BrushTextSecondary}"
                                                    FontSize="11.5"
-                                                   VerticalAlignment="Center" />
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="{x:Type TextBlock}">
+                                                    <Setter Property="MaxWidth" Value="155" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUpdate}" Value="True">
+                                                            <Setter Property="MaxWidth" Value="68" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <Border Background="#0E639C"
                                                 CornerRadius="2"
-                                                Padding="4,1"
-                                                Margin="6,0,0,0"
+                                                Padding="4,0"
+                                                Height="15"
+                                                Margin="5,0,0,0"
                                                 VerticalAlignment="Center"
+                                                ToolTip="{Binding UpdateBadgeText}"
                                                 Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
                                             <TextBlock Text="{Binding UpdateBadgeText}"
                                                        Foreground="#FFFFFF"
                                                        FontSize="10"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="80"
+                                                       Margin="0,-1,0,0"
+                                                       ToolTip="{Binding UpdateBadgeText}"
+                                                       VerticalAlignment="Center" />
                                         </Border>
                                     </StackPanel>
                                 </DataTemplate>
@@ -342,7 +362,7 @@
                         </GridViewColumn>
 
                         <!-- Column: Size -->
-                        <GridViewColumn Header="Size" Width="95">
+                        <GridViewColumn Header="Size" Width="90">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <TextBlock Text="{Binding FormattedSize}"
@@ -355,7 +375,7 @@
                         </GridViewColumn>
 
                         <!-- Column: Installed On -->
-                        <GridViewColumn Header="Installed On" Width="125">
+                        <GridViewColumn Header="Installed On" Width="120">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <TextBlock Text="{Binding InstallDate}"
@@ -371,7 +391,8 @@
             </ListView>
 
             <!-- View 1: Available Updates -->
-            <ListView ItemsSource="{Binding FilteredUpgradePackages}"
+            <ListView x:Name="UpdatesListView"
+                      ItemsSource="{Binding FilteredUpgradePackages}"
                       SelectedItem="{Binding SelectedItem}"
                       AlternationCount="2"
                       ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
@@ -398,28 +419,39 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
 
-                        <GridViewColumn Header="Current Version" Width="105">
+                        <GridViewColumn x:Name="CurrentVersionColumn" Header="Current Version" Width="130">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <TextBlock Text="{Binding Version}"
+                                               ToolTip="{Binding Version}"
                                                Foreground="{StaticResource BrushTextSecondary}"
                                                FontSize="11.5"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="120"
                                                VerticalAlignment="Center" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
 
-                        <GridViewColumn Header="New Version" Width="110">
+                        <GridViewColumn x:Name="NewVersionColumn" Header="New Version" Width="130">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:PackageItem}">
                                     <Border Background="#0E639C"
                                             CornerRadius="2"
-                                            Padding="4,1"
+                                            Padding="5,0"
+                                            Height="17"
+                                            HorizontalAlignment="Left"
+                                            ToolTip="{Binding AvailableVersion}"
                                             VerticalAlignment="Center">
                                         <TextBlock Text="{Binding AvailableVersion}"
                                                    Foreground="#FFFFFF"
                                                    FontSize="11"
-                                                   FontWeight="SemiBold" />
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="115"
+                                                   Margin="0,-1,0,0"
+                                                   ToolTip="{Binding AvailableVersion}"
+                                                   VerticalAlignment="Center" />
                                     </Border>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>

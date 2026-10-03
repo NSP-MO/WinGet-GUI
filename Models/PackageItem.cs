@@ -15,6 +15,7 @@ public partial class PackageItem : ObservableObject
     private string _version = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UpdateBadgeText))]
     private string _availableVersion = string.Empty;
 
     [ObservableProperty]
@@ -48,6 +49,7 @@ public partial class PackageItem : ObservableObject
     private ImageSource? _icon;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UpdateBadgeText))]
     private bool _hasUpdate;
 
     [ObservableProperty]
