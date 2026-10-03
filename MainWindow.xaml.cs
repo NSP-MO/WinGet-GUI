@@ -1,0 +1,194 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using WingetGui.ViewModels;
+
+namespace WingetGui;
+
+/// <summary>
+/// Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : Window
+{
+    private MainViewModel ViewModel => (MainViewModel)DataContext;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        Loaded += OnMainWindowLoaded;
+        KeyDown += OnMainWindowKeyDown;
+    }
+
+    private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.InitializeAsync();
+    }
+
+    private void OnMainWindowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (e.Key == Key.D1)
+            {
+                ViewModel.SelectedTabIndex = 0;
+                e.Handled = true;
+            }
+            else if (e.Key == Key.D2)
+            {
+                ViewModel.SelectedTabIndex = 1;
+                e.Handled = true;
+            }
+            else if (e.Key == Key.D3)
+            {
+                ViewModel.SelectedTabIndex = 2;
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F)
+            {
+                QuickSearchBox.Focus();
+                QuickSearchBox.SelectAll();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.E)
+            {
+                ViewModel.ExportListCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.U)
+            {
+                if (ViewModel.SelectedItem != null)
+                {
+                    ViewModel.UpgradeCommand.Execute(ViewModel.SelectedItem);
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.O)
+            {
+                if (ViewModel.SelectedItem != null)
+                {
+                    ViewModel.OpenLocationCommand.Execute(ViewModel.SelectedItem);
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.C)
+            {
+                if (ViewModel.SelectedItem != null && !QuickSearchBox.IsFocused)
+                {
+                    ViewModel.CopyIdCommand.Execute(ViewModel.SelectedItem);
+                    e.Handled = true;
+                }
+            }
+        }
+        else if (e.Key == Key.F5)
+        {
+            ViewModel.RefreshCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete)
+        {
+            if (ViewModel.SelectedItem != null && !QuickSearchBox.IsFocused && !OnlineSearchBox.IsFocused)
+            {
+                ViewModel.UninstallCommand.Execute(ViewModel.SelectedItem);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.Enter)
+        {
+            if (ViewModel.SelectedItem != null && !QuickSearchBox.IsFocused && !OnlineSearchBox.IsFocused)
+            {
+                ViewModel.ShowDetailsCommand.Execute(ViewModel.SelectedItem);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnListViewItemDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (ViewModel.SelectedItem != null)
+        {
+            ViewModel.ShowDetailsCommand.Execute(ViewModel.SelectedItem);
+        }
+    }
+
+    private void OnListViewItemPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListViewItem item)
+        {
+            item.IsSelected = true;
+            item.Focus();
+        }
+    }
+
+    private void OnQuickSearchKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            ViewModel.SearchText = string.Empty;
+            InstalledListView.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && ViewModel.SelectedTabIndex == 2)
+        {
+            ViewModel.SearchOnlineCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void OnOnlineSearchKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ViewModel.SearchOnlineCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void OnMenuExitClick(object sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void OnMenuAboutClick(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(
+            $"WinGet GUI\nVersion 1.0.0\n\nA modern, lightweight desktop package manager interface for Windows Package Manager (winget).\nEngine: Winget {ViewModel.WingetVersion}",
+            "About WinGet GUI",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void OnViewInstalledClick(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 0;
+    }
+
+    private void OnViewUpdatesClick(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 1;
+    }
+
+    private void OnViewDiscoverClick(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 2;
+    }
+
+    private void OnTabInstalledChecked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 0;
+    }
+
+    private void OnTabUpdatesChecked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 1;
+    }
+
+    private void OnTabDiscoverChecked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SelectedTabIndex = 2;
+    }
+
+    private void OnCopyDetailsClick(object sender, RoutedEventArgs e)
+    {
+        Clipboard.SetText(ViewModel.DetailsContent);
+    }
+}

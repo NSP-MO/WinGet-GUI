@@ -1,0 +1,16 @@
+# Build results
+bin/
+obj/
+publish/
+
+# Visual Studio / Rider / VS Code cache
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Agent helper directory (internal)
+exec/

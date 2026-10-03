@@ -1,0 +1,716 @@
+<Window x:Class="WingetGui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:WingetGui.ViewModels"
+        xmlns:conv="clr-namespace:WingetGui.Converters"
+        xmlns:models="clr-namespace:WingetGui.Models"
+        mc:Ignorable="d"
+        Title="WinGet GUI"
+        Icon="assets/app.ico"
+        Height="720" Width="760"
+        MinHeight="480" MinWidth="680"
+        Background="{StaticResource BrushCanvas}"
+        Foreground="{StaticResource BrushTextPrimary}"
+        FontFamily="{StaticResource DefaultFont}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BoolToVisibilityConverter x:Key="InvBoolToVis" Invert="True" />
+        <conv:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVis" />
+        <conv:TabIndexToVisibilityConverter x:Key="Tab0Vis" TargetIndex="0" />
+        <conv:TabIndexToVisibilityConverter x:Key="Tab1Vis" TargetIndex="1" />
+        <conv:TabIndexToVisibilityConverter x:Key="Tab2Vis" TargetIndex="2" />
+
+        <!-- GridViewColumnHeader Dark Style -->
+        <Style TargetType="{x:Type GridViewColumnHeader}">
+            <Setter Property="Background" Value="{StaticResource BrushHeader}" />
+            <Setter Property="Foreground" Value="{StaticResource BrushTextSecondary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ListViewItem Compact Zebra Striping Style -->
+        <Style x:Key="ZebraListViewItemStyle" TargetType="{x:Type ListViewItem}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="Foreground" Value="{StaticResource BrushTextSecondary}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListViewItem}">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <GridViewRowPresenter VerticalAlignment="Center" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="0">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushRowEven}" />
+                            </Trigger>
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushRowOdd}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushRowHover}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushRowSelected}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <EventSetter Event="MouseDoubleClick" Handler="OnListViewItemDoubleClick" />
+            <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnListViewItemPreviewMouseRightButtonDown" />
+        </Style>
+
+        <!-- Top Tab Header RadioButton Style -->
+        <Style x:Key="TabHeaderButtonStyle" TargetType="{x:Type RadioButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RadioButton}">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0,0,0,2"
+                                BorderBrush="Transparent"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushAccent}" />
+                                <Setter TargetName="Bd" Property="Background" Value="#252526" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Context Menu Definition -->
+        <ContextMenu x:Key="PackageContextMenu">
+            <MenuItem Header="Upgrade"
+                      Style="{StaticResource DarkContextMenuItem}"
+                      Command="{Binding DataContext.UpgradeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#007ACC" Data="M12,2L4.5,9.5H8.5V17H15.5V9.5H19.5L12,2M4,19V21H20V19H4Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="View Details..."
+                      Style="{StaticResource DarkContextMenuItem}"
+                      Command="{Binding DataContext.ShowDetailsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#CCCCCC" Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Open Install Folder"
+                      Style="{StaticResource DarkContextMenuItem}"
+                      Command="{Binding DataContext.OpenLocationCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#DCB67A" Data="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Search Online"
+                      Style="{StaticResource DarkContextMenuItem}"
+                      Command="{Binding DataContext.SearchWebCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#858585" Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Copy Package ID"
+                      Style="{StaticResource DarkContextMenuItem}"
+                      Command="{Binding DataContext.CopyIdCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#858585" Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator Style="{StaticResource DarkMenuSeparatorStyle}" />
+            <MenuItem Header="Uninstall"
+                      Style="{StaticResource DangerContextMenuItem}"
+                      Command="{Binding DataContext.UninstallCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform">
+                        <Path Fill="#FF5555" Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" />
+                    </Viewbox>
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 0: Menu Bar -->
+            <RowDefinition Height="Auto" />
+            <!-- 1: Navigation Tabs & Loading Indicator -->
+            <RowDefinition Height="Auto" />
+            <!-- 2: Main Content List Views -->
+            <RowDefinition Height="*" />
+            <!-- 3: Quick Search Filter Bar (Geek Uninstaller style) -->
+            <RowDefinition Height="Auto" />
+            <!-- 4: Status & Summary Bar -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Menu Bar -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Refresh List" InputGestureText="F5" Command="{Binding RefreshCommand}" />
+                <MenuItem Header="_Export List..." InputGestureText="Ctrl+E" Command="{Binding ExportListCommand}" />
+                <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="OnMenuExitClick" />
+            </MenuItem>
+            <MenuItem Header="_Action">
+                <MenuItem Header="_Upgrade Selected" InputGestureText="Ctrl+U" Command="{Binding UpgradeCommand}" CommandParameter="{Binding SelectedItem}" />
+                <MenuItem Header="Upgrade _All Packages..." Command="{Binding UpgradeAllCommand}" />
+                <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="View _Details..." InputGestureText="Enter" Command="{Binding ShowDetailsCommand}" CommandParameter="{Binding SelectedItem}" />
+                <MenuItem Header="_Open Install Directory" InputGestureText="Ctrl+O" Command="{Binding OpenLocationCommand}" CommandParameter="{Binding SelectedItem}" />
+                <MenuItem Header="_Copy Package ID" InputGestureText="Ctrl+C" Command="{Binding CopyIdCommand}" CommandParameter="{Binding SelectedItem}" />
+                <MenuItem Header="_Search Online" Command="{Binding SearchWebCommand}" CommandParameter="{Binding SelectedItem}" />
+                <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="_Uninstall Selected" Foreground="#FF6B6B" FontWeight="SemiBold" InputGestureText="Del" Command="{Binding UninstallCommand}" CommandParameter="{Binding SelectedItem}" />
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Installed Programs" InputGestureText="Ctrl+1" Click="OnViewInstalledClick" />
+                <MenuItem Header="_Available Updates" InputGestureText="Ctrl+2" Click="OnViewUpdatesClick" />
+                <MenuItem Header="_Discover &amp; Install" InputGestureText="Ctrl+3" Click="OnViewDiscoverClick" />
+                <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="_Refresh" InputGestureText="F5" Command="{Binding RefreshCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About WinGet GUI" Click="OnMenuAboutClick" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Row 1: Navigation Tabs & Loading Bar -->
+        <Border Grid.Row="1" Background="{StaticResource BrushHeader}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Margin="6,0">
+                    <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab0Vis}, Mode=OneWay}"
+                                 Click="OnTabInstalledChecked"
+                                 Style="{StaticResource TabHeaderButtonStyle}">
+                        <TextBlock Text="{Binding InstalledTabTitle}" />
+                    </RadioButton>
+                    <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}, Mode=OneWay}"
+                                 Click="OnTabUpdatesChecked"
+                                 Style="{StaticResource TabHeaderButtonStyle}">
+                        <TextBlock Text="{Binding UpdatesTabTitle}" />
+                    </RadioButton>
+                    <RadioButton Content="Discover &amp; Install"
+                                 IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Tab2Vis}, Mode=OneWay}"
+                                 Click="OnTabDiscoverChecked"
+                                 Style="{StaticResource TabHeaderButtonStyle}" />
+                </StackPanel>
+
+                <!-- Loading progress bar -->
+                <ProgressBar Grid.Row="1"
+                             Height="2"
+                             IsIndeterminate="True"
+                             Background="Transparent"
+                             Foreground="{StaticResource BrushAccent}"
+                             BorderThickness="0"
+                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </Border>
+
+        <!-- Row 2: Main List Views -->
+        <Grid Grid.Row="2">
+
+            <!-- View 0: Installed Programs -->
+            <ListView x:Name="InstalledListView"
+                      ItemsSource="{Binding FilteredInstalledPackages}"
+                      SelectedItem="{Binding SelectedItem}"
+                      AlternationCount="2"
+                      ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
+                      ContextMenu="{StaticResource PackageContextMenu}"
+                      Background="{StaticResource BrushCanvas}"
+                      BorderThickness="0"
+                      Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab0Vis}}">
+                <ListView.View>
+                    <GridView>
+                        <!-- Column: Program Name + Icon + Arch -->
+                        <GridViewColumn Header="Program Name" Width="350">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Image Source="{Binding Icon}"
+                                               Width="16" Height="16"
+                                               Margin="0,0,8,0"
+                                               VerticalAlignment="Center"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="{StaticResource BrushTextPrimary}"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ArchitectureBadgeText}"
+                                                   Foreground="{StaticResource BrushTextMuted}"
+                                                   FontSize="11"
+                                                   Margin="6,0,0,0"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Column: Version / Upgrade Badge -->
+                        <GridViewColumn Header="Version" Width="110">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Version}"
+                                                   Foreground="{StaticResource BrushTextSecondary}"
+                                                   FontSize="11.5"
+                                                   VerticalAlignment="Center" />
+                                        <Border Background="#0E639C"
+                                                CornerRadius="2"
+                                                Padding="4,1"
+                                                Margin="6,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="{Binding UpdateBadgeText}"
+                                                       Foreground="#FFFFFF"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold" />
+                                        </Border>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Column: Size -->
+                        <GridViewColumn Header="Size" Width="95">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <TextBlock Text="{Binding FormattedSize}"
+                                               Foreground="{StaticResource BrushTextSecondary}"
+                                               FontSize="11.5"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <!-- Column: Installed On -->
+                        <GridViewColumn Header="Installed On" Width="125">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <TextBlock Text="{Binding InstallDate}"
+                                               Foreground="{StaticResource BrushTextSecondary}"
+                                               FontSize="11.5"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
+            <!-- View 1: Available Updates -->
+            <ListView ItemsSource="{Binding FilteredUpgradePackages}"
+                      SelectedItem="{Binding SelectedItem}"
+                      AlternationCount="2"
+                      ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
+                      ContextMenu="{StaticResource PackageContextMenu}"
+                      Background="{StaticResource BrushCanvas}"
+                      BorderThickness="0"
+                      Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Program Name" Width="260">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Image Source="{Binding Icon}"
+                                               Width="16" Height="16"
+                                               Margin="0,0,8,0"
+                                               VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="{StaticResource BrushTextPrimary}"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Current Version" Width="105">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <TextBlock Text="{Binding Version}"
+                                               Foreground="{StaticResource BrushTextSecondary}"
+                                               FontSize="11.5"
+                                               VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="New Version" Width="110">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <Border Background="#0E639C"
+                                            CornerRadius="2"
+                                            Padding="4,1"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AvailableVersion}"
+                                                   Foreground="#FFFFFF"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold" />
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Header="Action" Width="85">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:PackageItem}">
+                                    <Button Content="Update"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            Padding="8,2"
+                                            FontSize="11"
+                                            Command="{Binding DataContext.UpgradeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
+            <!-- View 2: Discover & Install Packages -->
+            <Grid Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab2Vis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Search Input Toolbar for Discover Tab -->
+                <Border Grid.Row="0" Background="{StaticResource BrushHeader}" Padding="10,8" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="OnlineSearchBox"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="{StaticResource BrushCard}"
+                                 Foreground="{StaticResource BrushTextPrimary}"
+                                 BorderBrush="{StaticResource BrushBorderLight}"
+                                 BorderThickness="1"
+                                 Padding="8,5"
+                                 FontSize="12"
+                                 KeyDown="OnOnlineSearchKeyDown" />
+                        <Button Grid.Column="1"
+                                Content="Search Store / Winget"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Margin="8,0,0,0"
+                                Command="{Binding SearchOnlineCommand}" />
+                    </Grid>
+                </Border>
+
+                <ListView Grid.Row="1"
+                          ItemsSource="{Binding SearchResults}"
+                          SelectedItem="{Binding SelectedItem}"
+                          AlternationCount="2"
+                          ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
+                          Background="{StaticResource BrushCanvas}"
+                          BorderThickness="0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Package Name" Width="220">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushTextPrimary}" FontSize="12" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Package ID" Width="180">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <TextBlock Text="{Binding Id}" Foreground="{StaticResource BrushTextMuted}" FontSize="11" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Version" Width="90">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <TextBlock Text="{Binding Version}" Foreground="{StaticResource BrushTextSecondary}" FontSize="11.5" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Source" Width="80">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <TextBlock Text="{Binding Source}" Foreground="{StaticResource BrushTextSecondary}" FontSize="11" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="Action" Width="85">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <Button Content="Install"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                Padding="8,2"
+                                                FontSize="11"
+                                                Command="{Binding DataContext.InstallCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+
+        </Grid>
+
+        <!-- Row 3: Quick Search Filter Box (Geek Uninstaller signature element) -->
+        <Border Grid.Row="3"
+                Background="{StaticResource BrushHeader}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,1,0,0"
+                Padding="6,4">
+            <Border Background="{StaticResource BrushCanvas}"
+                    BorderBrush="{StaticResource BrushBorderLight}"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    Height="26">
+                <Grid>
+                    <!-- Watermark text -->
+                    <TextBlock Text="Type to find a program"
+                               Foreground="{StaticResource BrushTextMuted}"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Visibility="{Binding SearchText, Converter={StaticResource StringNotEmptyToVis}, ConverterParameter=invert}" />
+
+                    <!-- Search Input Box -->
+                    <TextBox x:Name="QuickSearchBox"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             Foreground="{StaticResource BrushTextPrimary}"
+                             CaretBrush="{StaticResource BrushTextPrimary}"
+                             BorderThickness="0"
+                             Padding="6,2"
+                             FontSize="12"
+                             HorizontalContentAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             KeyDown="OnQuickSearchKeyDown" />
+
+                    <!-- Clear button -->
+                    <Button Content="✕"
+                            Command="{Binding ClearSearchCommand}"
+                            Background="Transparent"
+                            Foreground="{StaticResource BrushTextMuted}"
+                            BorderThickness="0"
+                            Padding="6,0"
+                            FontSize="11"
+                            HorizontalAlignment="Right"
+                            Cursor="Hand"
+                            Visibility="{Binding SearchText, Converter={StaticResource StringNotEmptyToVis}}" />
+                </Grid>
+            </Border>
+        </Border>
+
+        <!-- Row 4: Status and Summary Bar -->
+        <Border Grid.Row="4"
+                Background="#181818"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="0,1,0,0"
+                Height="24"
+                Padding="8,0">
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Programs and Size Summary -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusSummary}"
+                           Foreground="{StaticResource BrushTextSecondary}"
+                           FontSize="11.5"
+                           VerticalAlignment="Center" />
+
+                <!-- Right: Winget Engine Version -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding WingetVersion, StringFormat='WinGet v{0}'}"
+                           Foreground="{StaticResource BrushTextMuted}"
+                           FontSize="11"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Overlay: Live Operation Console Drawer -->
+        <Border Grid.Row="0" Grid.RowSpan="5"
+                Background="#88000000"
+                Visibility="{Binding IsDrawerOpen, Converter={StaticResource BoolToVis}}">
+            <Grid VerticalAlignment="Bottom" Height="360" Background="{StaticResource BrushHeader}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="36" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Drawer Header -->
+                <Border Grid.Row="0" Background="#181818" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="12,0">
+                    <Grid VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DrawerTitle}"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   FontWeight="SemiBold"
+                                   FontSize="12.5"
+                                   VerticalAlignment="Center" />
+                        <Button Content="Close"
+                                Style="{StaticResource DarkButtonStyle}"
+                                HorizontalAlignment="Right"
+                                Padding="10,3"
+                                Command="{Binding CloseDrawerCommand}"
+                                IsEnabled="{Binding IsDrawerRunning, Converter={StaticResource InvBoolToVis}}" />
+                    </Grid>
+                </Border>
+
+                <!-- Console Output ScrollViewer -->
+                <ScrollViewer x:Name="ConsoleScrollViewer" Grid.Row="1" Background="#121212" Padding="10">
+                    <TextBlock Text="{Binding DrawerOutput}"
+                               Foreground="#DCDCDC"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontSize="11.5"
+                               TextWrapping="Wrap" />
+                </ScrollViewer>
+
+                <!-- Status indicator at bottom of drawer -->
+                <ProgressBar Grid.Row="2"
+                             Height="3"
+                             IsIndeterminate="True"
+                             Background="Transparent"
+                             Foreground="{StaticResource BrushAccent}"
+                             BorderThickness="0"
+                             Visibility="{Binding IsDrawerRunning, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </Border>
+
+        <!-- Overlay: Package Details Modal Dialog -->
+        <Border Grid.Row="0" Grid.RowSpan="5"
+                Background="#88000000"
+                Visibility="{Binding IsDetailsOpen, Converter={StaticResource BoolToVis}}">
+            <Border Width="480" Height="420"
+                    Background="{StaticResource BrushHeader}"
+                    BorderBrush="{StaticResource BrushBorderLight}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="46" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#181818" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="14,0">
+                        <TextBlock Text="{Binding DetailsTitle}"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" Padding="14">
+                        <TextBlock Text="{Binding DetailsContent}"
+                                   Foreground="{StaticResource BrushTextSecondary}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="11.5"
+                                   TextWrapping="Wrap" />
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" Background="#181818" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="14,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="Copy Details"
+                                    Style="{StaticResource DarkButtonStyle}"
+                                    Padding="12,4"
+                                    Margin="0,0,8,0"
+                                    Click="OnCopyDetailsClick" />
+                            <Button Content="Close"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Padding="16,4"
+                                    Command="{Binding CloseDetailsCommand}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Border>
+
+    </Grid>
+</Window>
