@@ -1,6 +1,6 @@
 # WinGet GUI
 
-A lightweight, high-density desktop graphical interface for the Windows Package Manager (`winget`) built with .NET 8 and WPF. The interface draws ergonomic inspiration from clean system utilities like Geek Uninstaller, pairing high-density zebra-striped data presentation with native Windows shell icon resolution, instant search filtering, and multi-tab package management.
+A desktop graphical interface for the Windows Package Manager (`winget`) built with .NET 8 and WPF to manage, update, search, and install Windows software packages.
 
 ![WinGet GUI Preview](assets/image.png)
 
@@ -8,15 +8,16 @@ A lightweight, high-density desktop graphical interface for the Windows Package 
 
 ## Features
 
-- **Hybrid Data Aggregation**: Combines `winget list` package identity with Windows Add/Remove Programs (ARP) registry records to present real disk footprint sizes (`EstimatedSize`), installation dates (`InstallDate`), install locations, and native application icons.
-- **High-Density Presentation**: Compact table rows with alternating zebra striping (`#1f1f1f` / `#242424`), clear column dividers, and low-latency rendering.
+- **Hybrid Data Aggregation**: Combines `winget` package tracking with Windows Add/Remove Programs (ARP) registry records to report accurate disk footprint sizes (`EstimatedSize`), installation dates (`InstallDate`), install locations, and native application icons.
+- **Package Management & Operations**: Upgrade, uninstall, or reinstall software packages individually or in batch with instant feedback.
+- **Update Visibility Control**: Hide unwanted or pinned updates from the upgrade queue with dedicated context actions, and toggle visibility of hidden items directly from the menu.
 - **Multi-Tab Organization**:
   - **Installed Programs**: Inspect installed desktop and Store applications, view architectures (`x64`, `32-bit`), footprint sizes, and available upgrades.
   - **Available Updates**: View and apply available package updates individually or in batch.
   - **Discover & Install**: Search the global Windows Package Manager repository and install packages directly.
-- **Instant Search Filtering**: Real-time filtering across package name, publisher, version, and package ID directly from the bottom search bar or dedicated shortcut.
-- **Live Operation Console**: Integrated slide-up console drawer streaming real-time stdout/stderr from `winget` operations without blocking background threads.
-- **High-DPI PerMonitorV2 Support**: Configured with strict PerMonitorV2 DPI awareness manifest and display pixel snapping to guarantee crisp font rendering and borders across varied display scaling factors.
+- **Instant Search Filtering**: Real-time filtering across package name, publisher, version, and package ID directly from the search bar or dedicated shortcut.
+- **Live Operation Console**: Integrated slide-up console drawer streaming real-time stdout/stderr from package manager commands without blocking application workflows.
+- **Data Export**: Export package lists and system inventories to CSV or text formats.
 
 ---
 
@@ -79,7 +80,7 @@ winget-gui/
 │   ├── app.png               # High-DPI application branding logo
 │   ├── image.png             # Application interface preview
 │   └── winget_logo.svg       # Vector logo asset
-├── App.xaml                  # Application entry point and dark modern theme resource definitions
+├── App.xaml                  # Application entry point and theme resource definitions
 ├── App.xaml.cs               # Application code-behind
 ├── MainWindow.xaml           # Primary window layout, menus, list views, and console drawer
 ├── MainWindow.xaml.cs        # Primary window interactions and shortcut bindings
@@ -89,8 +90,10 @@ winget-gui/
 │   └── CommonConverters.cs   # XAML value converters for UI visibility and bindings
 ├── Models/
 │   └── PackageItem.cs        # Observable data model for installed and available packages
-└── Services/
-    ├── IconService.cs        # Win32 shell icon extraction and caching engine
-    ├── RegistryService.cs    # Windows Add/Remove Programs (ARP) registry scanner
-    └── WingetService.cs      # Asynchronous CLI runner and output stream parser
+├── Services/
+│   ├── IconService.cs        # Win32 shell icon extraction and caching engine
+│   ├── RegistryService.cs    # Windows Add/Remove Programs (ARP) registry scanner
+│   └── WingetService.cs      # Asynchronous CLI runner and output stream parser
+└── ViewModels/
+    └── MainViewModel.cs      # Primary application state, commands, and catalog filtering
 ```

@@ -236,7 +236,7 @@
             <RowDefinition Height="Auto" />
             <!-- 2: Main Content List Views -->
             <RowDefinition Height="*" />
-            <!-- 3: Quick Search Filter Bar (Geek Uninstaller style) -->
+            <!-- 3: Quick Search Filter Bar -->
             <RowDefinition Height="Auto" />
             <!-- 4: Status & Summary Bar -->
             <RowDefinition Height="Auto" />
@@ -691,7 +691,7 @@
 
         </Grid>
 
-        <!-- Row 3: Quick Search Filter Box (Geek Uninstaller signature element) -->
+        <!-- Row 3: Quick Search Filter Box -->
         <Border Grid.Row="3"
                 Background="{StaticResource BrushHeader}"
                 BorderBrush="{StaticResource BrushBorder}"
