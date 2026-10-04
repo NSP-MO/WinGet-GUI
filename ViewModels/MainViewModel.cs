@@ -44,13 +44,30 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedCount = 0;
 
+    [ObservableProperty]
+    private bool _isMultiSelected = false;
+
+    [ObservableProperty]
+    private bool _isSingleSelected = true;
+
+    public Action? SelectAllRequested { get; set; }
+
+    [RelayCommand]
+    public void SelectAll()
+    {
+        SelectAllRequested?.Invoke();
+    }
+
     public void UpdateSelectedItems(List<PackageItem> items)
     {
         SelectedItems.Clear();
         SelectedItems.AddRange(items);
         SelectedCount = items.Count;
 
-        UpgradeMenuHeader = SelectedCount > 1 ? "Upgrade Selected" : "Upgrade";
+        IsMultiSelected = SelectedCount > 1;
+        IsSingleSelected = !IsMultiSelected;
+
+        UpgradeMenuHeader = IsMultiSelected ? "Upgrade Selected" : "Upgrade";
     }
 
     [ObservableProperty]

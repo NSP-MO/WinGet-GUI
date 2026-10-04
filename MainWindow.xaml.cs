@@ -25,6 +25,8 @@ public partial class MainWindow : Window
         {
             cm.DataContext = ViewModel;
         }
+
+        ViewModel.SelectAllRequested = HandleSelectAll;
     }
 
     private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
@@ -64,6 +66,20 @@ public partial class MainWindow : Window
         else
         {
             ViewModel.UpdateSelectedItems(new List<PackageItem>());
+        }
+    }
+
+    private void HandleSelectAll()
+    {
+        if (ViewModel.SelectedTabIndex == 0 && InstalledListView != null)
+        {
+            InstalledListView.SelectAll();
+            InstalledListView.Focus();
+        }
+        else if (ViewModel.SelectedTabIndex == 1 && UpdatesListView != null)
+        {
+            UpdatesListView.SelectAll();
+            UpdatesListView.Focus();
         }
     }
 
@@ -130,6 +146,14 @@ public partial class MainWindow : Window
             {
                 ViewModel.ExportListCommand.Execute(null);
                 e.Handled = true;
+            }
+            else if (e.Key == Key.A)
+            {
+                if (!QuickSearchBox.IsFocused && !OnlineSearchBox.IsFocused)
+                {
+                    ViewModel.SelectAllCommand.Execute(null);
+                    e.Handled = true;
+                }
             }
             else if (e.Key == Key.U)
             {
