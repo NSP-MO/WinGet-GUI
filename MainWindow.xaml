@@ -136,7 +136,7 @@
 
         <!-- Context Menu Definition -->
         <ContextMenu x:Key="PackageContextMenu">
-            <MenuItem Header="Upgrade"
+            <MenuItem Header="{Binding UpgradeMenuHeader}"
                       Style="{StaticResource DarkContextMenuItem}"
                       Command="{Binding UpgradeCommand}"
                       CommandParameter="{Binding SelectedItem}">
@@ -223,7 +223,7 @@
                 <MenuItem Header="E_xit" InputGestureText="Alt+F4" Click="OnMenuExitClick" />
             </MenuItem>
             <MenuItem Header="_Action">
-                <MenuItem Header="_Upgrade Selected" InputGestureText="Ctrl+U" Command="{Binding UpgradeCommand}" CommandParameter="{Binding SelectedItem}" />
+                <MenuItem Header="{Binding UpgradeMenuHeader}" InputGestureText="Ctrl+U" Command="{Binding UpgradeCommand}" CommandParameter="{Binding SelectedItem}" />
                 <MenuItem Header="Upgrade _All Packages..." Command="{Binding UpgradeAllCommand}" />
                 <Separator Background="{StaticResource BrushBorder}" />
                 <MenuItem Header="View _Details..." InputGestureText="Enter" Command="{Binding ShowDetailsCommand}" CommandParameter="{Binding SelectedItem}" />
@@ -291,6 +291,8 @@
             <ListView x:Name="InstalledListView"
                       ItemsSource="{Binding FilteredInstalledPackages}"
                       SelectedItem="{Binding SelectedItem}"
+                      SelectionMode="Extended"
+                      SelectionChanged="OnListViewSelectionChanged"
                       AlternationCount="2"
                       ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
                       ContextMenu="{StaticResource PackageContextMenu}"
@@ -402,6 +404,8 @@
             <ListView x:Name="UpdatesListView"
                       ItemsSource="{Binding FilteredUpgradePackages}"
                       SelectedItem="{Binding SelectedItem}"
+                      SelectionMode="Extended"
+                      SelectionChanged="OnListViewSelectionChanged"
                       AlternationCount="2"
                       ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
                       ContextMenu="{StaticResource PackageContextMenu}"

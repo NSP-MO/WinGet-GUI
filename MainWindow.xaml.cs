@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using WingetGui.Models;
 using WingetGui.Services;
 using WingetGui.ViewModels;
 
@@ -39,6 +40,26 @@ public partial class MainWindow : Window
             (e.PropertyName == nameof(MainViewModel.IsLoading) && !ViewModel.IsLoading))
         {
             Dispatcher.InvokeAsync(AutoFitColumns, System.Windows.Threading.DispatcherPriority.Background);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.SelectedTabIndex))
+        {
+            SyncActiveListSelection();
+        }
+    }
+
+    private void SyncActiveListSelection()
+    {
+        if (ViewModel.SelectedTabIndex == 0 && InstalledListView != null)
+        {
+            ViewModel.UpdateSelectedItems(InstalledListView.SelectedItems.OfType<PackageItem>().ToList());
+        }
+        else if (ViewModel.SelectedTabIndex == 1 && UpdatesListView != null)
+        {
+            ViewModel.UpdateSelectedItems(UpdatesListView.SelectedItems.OfType<PackageItem>().ToList());
+        }
+        else
+        {
+            ViewModel.UpdateSelectedItems(new List<PackageItem>());
         }
     }
 
@@ -108,7 +129,7 @@ public partial class MainWindow : Window
             }
             else if (e.Key == Key.U)
             {
-                if (ViewModel.SelectedItem != null)
+                if (ViewModel.SelectedItem != null || ViewModel.SelectedItems.Count > 0)
                 {
                     ViewModel.UpgradeCommand.Execute(ViewModel.SelectedItem);
                     e.Handled = true;
@@ -162,18 +183,40 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnListViewSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListView lv)
+        {
+            var selected = lv.SelectedItems.OfType<PackageItem>().ToList();
+            ViewModel.UpdateSelectedItems(selected);
+        }
+    }
+
     private void OnListViewItemPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is ListViewItem item)
         {
-            item.IsSelected = true;
+            if (!item.IsSelected)
+            {
+                if (ItemsControl.ItemsControlFromItemContainer(item) is ListView lv)
+                {
+                    lv.SelectedItems.Clear();
+                }
+                item.IsSelected = true;
+            }
             item.Focus();
         }
     }
 
     private void OnListViewContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        if (ViewModel.SelectedItem == null)
+        if (sender is ListView lv)
+        {
+            var selected = lv.SelectedItems.OfType<PackageItem>().ToList();
+            ViewModel.UpdateSelectedItems(selected);
+        }
+
+        if (ViewModel.SelectedItem == null && ViewModel.SelectedItems.Count == 0)
         {
             e.Handled = true;
             return;

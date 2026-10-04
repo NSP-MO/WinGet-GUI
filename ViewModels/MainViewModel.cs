@@ -36,6 +36,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private PackageItem? _selectedItem;
 
+    public List<PackageItem> SelectedItems { get; } = new();
+
+    [ObservableProperty]
+    private string _upgradeMenuHeader = "Upgrade";
+
+    [ObservableProperty]
+    private int _selectedCount = 0;
+
+    public void UpdateSelectedItems(List<PackageItem> items)
+    {
+        SelectedItems.Clear();
+        SelectedItems.AddRange(items);
+        SelectedCount = items.Count;
+
+        UpgradeMenuHeader = SelectedCount > 1 ? "Upgrade Selected" : "Upgrade";
+    }
+
     [ObservableProperty]
     private bool _isLoading;
 
@@ -293,11 +310,46 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task UpgradeAsync(object? param)
     {
-        var item = param as PackageItem ?? SelectedItem;
-        if (item == null) return;
+        List<PackageItem> targetPackages;
 
-        var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
-        await RunWingetOperationAsync($"Upgrading {item.Name} to {item.AvailableVersion}...", arg, true);
+        if (SelectedItems.Count > 1)
+        {
+            targetPackages = SelectedTabIndex == 1
+                ? SelectedItems.ToList()
+                : SelectedItems.Where(p => p.HasUpdate).ToList();
+
+            if (targetPackages.Count == 0)
+            {
+                targetPackages = SelectedItems.ToList();
+            }
+        }
+        else
+        {
+            var single = param as PackageItem ?? SelectedItem;
+            if (single == null) return;
+            targetPackages = new List<PackageItem> { single };
+        }
+
+        if (targetPackages.Count == 0) return;
+
+        if (targetPackages.Count == 1)
+        {
+            var item = targetPackages[0];
+            var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+            await RunWingetOperationAsync($"Upgrading {item.Name} to {item.AvailableVersion}...", arg, true);
+        }
+        else
+        {
+            var confirm = MessageBox.Show(
+                $"Upgrade {targetPackages.Count} selected packages to their latest versions?",
+                "Confirm Upgrade Selected",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            await RunWingetBatchOperationAsync($"Upgrading {targetPackages.Count} Selected Packages...", targetPackages);
+        }
     }
 
     [RelayCommand]
@@ -582,6 +634,74 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             DrawerOutput += $"\nError executing command: {ex.Message}\n";
+        }
+        finally
+        {
+            IsDrawerRunning = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+        }
+    }
+
+    private async Task RunWingetBatchOperationAsync(string title, List<PackageItem> items)
+    {
+        DrawerTitle = title;
+        DrawerOutput = $"Starting batch upgrade for {items.Count} packages...\n\n";
+        IsDrawerOpen = true;
+        IsDrawerRunning = true;
+
+        _operationCts = new CancellationTokenSource();
+
+        try
+        {
+            int successCount = 0;
+            int failedCount = 0;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (_operationCts.Token.IsCancellationRequested) break;
+
+                var item = items[i];
+                var targetVer = !string.IsNullOrWhiteSpace(item.AvailableVersion) ? item.AvailableVersion : "latest";
+                DrawerOutput += "--------------------------------------------------\n";
+                DrawerOutput += $"[{i + 1}/{items.Count}] Upgrading {item.Name} ({item.Id}) to {targetVer}...\n";
+                DrawerOutput += "--------------------------------------------------\n";
+
+                var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+
+                var exitCode = await _wingetService.StreamCommandAsync(arg, line =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        DrawerOutput += line + "\n";
+                    });
+                }, _operationCts.Token);
+
+                if (exitCode == 0)
+                {
+                    successCount++;
+                    DrawerOutput += $"\n[Success] {item.Name} upgraded successfully.\n\n";
+                }
+                else
+                {
+                    failedCount++;
+                    DrawerOutput += $"\n[Failed] {item.Name} exited with code: {exitCode}\n\n";
+                }
+            }
+
+            DrawerOutput += "==================================================\n";
+            DrawerOutput += $"Batch upgrade completed: {successCount} succeeded, {failedCount} failed.\n";
+            DrawerOutput += "==================================================\n";
+
+            await RefreshAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            DrawerOutput += "\nBatch operation was cancelled by user.\n";
+        }
+        catch (Exception ex)
+        {
+            DrawerOutput += $"\nError in batch operation: {ex.Message}\n";
         }
         finally
         {
