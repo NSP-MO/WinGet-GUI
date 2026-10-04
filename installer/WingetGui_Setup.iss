@@ -62,8 +62,8 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; C
 ; Silent installation of Microsoft .NET 8.0 Desktop Runtime (if not already installed)
 Filename: "{tmp}\windowsdesktop-runtime-8.0-win-x64.exe"; Parameters: "/install /quiet /norestart"; Check: not IsDotNet8DesktopRuntimeInstalled; StatusMsg: "Installing Microsoft .NET 8.0 Desktop Runtime..."; Flags: waituntilterminated
 
-; Launch WinGet GUI after setup completes
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; Launch WinGet GUI after setup completes (runascurrentuser ensures Setup's elevated credentials are used)
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
