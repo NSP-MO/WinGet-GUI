@@ -163,6 +163,14 @@ public partial class MainWindow : Window
                     e.Handled = true;
                 }
             }
+            else if (e.Key == Key.H || e.Key == Key.P)
+            {
+                if (ViewModel.SelectedItem != null || ViewModel.SelectedItems.Count > 0)
+                {
+                    ViewModel.TogglePinCommand.Execute(ViewModel.SelectedItem);
+                    e.Handled = true;
+                }
+            }
             else if (e.Key == Key.O)
             {
                 if (ViewModel.SelectedItem != null)

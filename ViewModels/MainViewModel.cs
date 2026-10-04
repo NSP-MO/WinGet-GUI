@@ -42,6 +42,20 @@ public partial class MainViewModel : ObservableObject
     private string _upgradeMenuHeader = "Upgrade";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HideMenuHeader))]
+    private string _pinMenuHeader = "Hide Update";
+
+    public string HideMenuHeader => PinMenuHeader;
+
+    partial void OnSelectedItemChanged(PackageItem? value)
+    {
+        if (!IsMultiSelected)
+        {
+            UpdatePinMenuHeader();
+        }
+    }
+
+    [ObservableProperty]
     private int _selectedCount = 0;
 
     [ObservableProperty]
@@ -68,6 +82,21 @@ public partial class MainViewModel : ObservableObject
         IsSingleSelected = !IsMultiSelected;
 
         UpgradeMenuHeader = IsMultiSelected ? "Upgrade Selected" : "Upgrade";
+        UpdatePinMenuHeader();
+    }
+
+    public void UpdatePinMenuHeader()
+    {
+        if (SelectedCount > 1)
+        {
+            bool allPinned = SelectedItems.All(p => p.IsPinned);
+            PinMenuHeader = allPinned ? "Unhide Selected" : "Hide Selected";
+        }
+        else
+        {
+            var item = SelectedItem ?? SelectedItems.FirstOrDefault();
+            PinMenuHeader = (item != null && item.IsPinned) ? "Unhide Update" : "Hide Update";
+        }
     }
 
     [ObservableProperty]
@@ -240,6 +269,7 @@ public partial class MainViewModel : ObservableObject
             UpdateUpgradesCountAndTitle();
 
             UpdateStatusSummary();
+            UpdatePinMenuHeader();
         }
         catch (Exception ex)
         {
@@ -413,6 +443,113 @@ public partial class MainViewModel : ObservableObject
 
         var packagesToUpgrade = UpgradePackages.Where(p => ShowPinnedUpdates || !p.IsPinned).ToList();
         await RunWingetBatchOperationAsync($"Upgrading All ({packagesToUpgrade.Count}) Packages...", packagesToUpgrade);
+    }
+
+    [RelayCommand]
+    public async Task TogglePinAsync(object? param)
+    {
+        var targetPackages = SelectedCount > 1 && SelectedItems.Count > 0
+            ? SelectedItems.ToList()
+            : (param as PackageItem ?? SelectedItem) != null
+                ? new List<PackageItem> { (param as PackageItem ?? SelectedItem)! }
+                : new List<PackageItem>();
+
+        if (targetPackages.Count == 0) return;
+
+        bool shouldPin;
+        if (targetPackages.Count == 1)
+        {
+            shouldPin = !targetPackages[0].IsPinned;
+        }
+        else
+        {
+            bool allPinned = targetPackages.All(p => p.IsPinned);
+            shouldPin = !allPinned;
+        }
+
+        await RunWingetPinOperationAsync(targetPackages, shouldPin);
+    }
+
+    private async Task RunWingetPinOperationAsync(List<PackageItem> items, bool shouldPin)
+    {
+        string actionVerb = shouldPin ? "Hiding" : "Unhiding";
+        string title = items.Count == 1
+            ? $"{actionVerb} {items[0].Name}..."
+            : $"{actionVerb} {items.Count} Updates...";
+
+        DrawerTitle = title;
+        DrawerOutput = $"Starting operation: {(shouldPin ? "Hide" : "Unhide")} {items.Count} update(s)...\n\n";
+        IsDrawerOpen = true;
+        IsDrawerRunning = true;
+        _operationCts = new CancellationTokenSource();
+
+        try
+        {
+            int successCount = 0;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (_operationCts.Token.IsCancellationRequested) break;
+
+                var item = items[i];
+                if (items.Count > 1)
+                {
+                    DrawerOutput += "--------------------------------------------------\n";
+                    DrawerOutput += $"[{i + 1}/{items.Count}] {(shouldPin ? "Hiding" : "Unhiding")} {item.Name} ({item.Id})...\n";
+                }
+
+                var args = shouldPin
+                    ? $"pin add --id \"{item.Id}\" --accept-source-agreements"
+                    : $"pin remove --id \"{item.Id}\"";
+
+                var exitCode = await _wingetService.StreamCommandAsync(args, line =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        DrawerOutput += line + "\n";
+                    });
+                }, _operationCts.Token);
+
+                if (exitCode == 0)
+                {
+                    successCount++;
+                    item.IsPinned = shouldPin;
+
+                    foreach (var p in InstalledPackages.Where(x => string.Equals(x.Id, item.Id, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        p.IsPinned = shouldPin;
+                    }
+                    foreach (var p in UpgradePackages.Where(x => string.Equals(x.Id, item.Id, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        p.IsPinned = shouldPin;
+                    }
+                }
+                else
+                {
+                    DrawerOutput += $"Failed to {(shouldPin ? "hide" : "unhide")} {item.Name} (Exit code: {exitCode})\n";
+                }
+            }
+
+            FilteredUpgradePackages.Refresh();
+            UpdateUpgradesCountAndTitle();
+            UpdateStatusSummary();
+            UpdatePinMenuHeader();
+
+            DrawerOutput += $"\nCompleted: {successCount}/{items.Count} update(s) successfully {(shouldPin ? "hidden" : "unhidden")}.\n";
+        }
+        catch (OperationCanceledException)
+        {
+            DrawerOutput += "\nOperation was cancelled by user.\n";
+        }
+        catch (Exception ex)
+        {
+            DrawerOutput += $"\nError executing pin operation: {ex.Message}\n";
+        }
+        finally
+        {
+            IsDrawerRunning = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+        }
     }
 
     [RelayCommand]

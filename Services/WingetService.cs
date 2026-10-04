@@ -28,8 +28,9 @@ public class WingetService
     {
         var items = new List<PackageItem>();
 
-        // Query registry in parallel / background
+        // Query registry and pins in parallel / background
         var registryTask = Task.Run(RegistryService.GetInstalledRegistryApps, ct);
+        var pinnedTask = GetPinnedPackageIdsAsync(ct);
 
         var (exitCode, stdout, _) = await RunProcessAsync("winget", "list --accept-source-agreements", ct);
         if (exitCode != 0 && string.IsNullOrWhiteSpace(stdout))
@@ -38,6 +39,7 @@ public class WingetService
         }
 
         var registryMap = await registryTask;
+        var pinnedIds = await pinnedTask;
         var lines = stdout.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         if (lines.Length < 3) return items;
 
@@ -122,7 +124,8 @@ public class WingetService
                 AvailableVersion = available,
                 Source = source,
                 HasUpdate = !string.IsNullOrEmpty(available),
-                IsInstalled = true
+                IsInstalled = true,
+                IsPinned = pinnedIds.Contains(id)
             };
 
             // Enrich with registry metadata
