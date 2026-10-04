@@ -377,7 +377,227 @@ public partial class MainViewModel : ObservableObject
             ? $"uninstall --id \"{item.Id}\" --accept-source-agreements"
             : $"uninstall --name \"{item.Name}\"";
 
-        await RunWingetOperationAsync($"Uninstalling {item.Name}...", arg, true);
+        await RunUninstallWithDeepCleanAsync(item, arg);
+    }
+
+    [RelayCommand]
+    public async Task ForceRemovalAsync(object? param)
+    {
+        var item = param as PackageItem ?? SelectedItem;
+        if (item == null) return;
+
+        var confirm = MessageBox.Show(
+            $"Force Removal will bypass the standard uninstaller and aggressively scan and delete all files, folders, shortcuts, and registry entries associated with \"{item.Name}\".\n\nUse this option if the program is broken, corrupted, or its uninstaller fails.\n\nDo you want to proceed with Force Removal for \"{item.Name}\"?",
+            "Confirm Force Removal",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirm != MessageBoxResult.Yes) return;
+
+        await RunForceRemovalCoreAsync(item);
+    }
+
+    private async Task RunUninstallWithDeepCleanAsync(PackageItem item, string args)
+    {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+
+        DrawerTitle = $"Uninstalling {item.Name}...";
+        DrawerOutput = $"Starting operation: winget {args}\n\n";
+        IsDrawerOpen = true;
+        IsDrawerRunning = true;
+
+        _operationCts = new CancellationTokenSource();
+
+        try
+        {
+            var exitCode = await _wingetService.StreamCommandAsync(args, line =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    DrawerOutput += line + "\n";
+                });
+            }, _operationCts.Token);
+
+            DrawerOutput += $"\nProcess completed with exit code: {exitCode}\n";
+
+            if (!_operationCts.Token.IsCancellationRequested)
+            {
+                DrawerOutput += "\n[Deep Cleaner] Scanning for residual files, folders, and registry entries...\n";
+
+                var leftovers = await LeftoverCleanerService.ScanLeftoversAsync(item, _operationCts.Token);
+
+                if (leftovers.Count == 0)
+                {
+                    DrawerOutput += "[Deep Cleaner] No residual traces detected. System is clean.\n";
+                }
+                else
+                {
+                    DrawerOutput += $"[Deep Cleaner] Found {leftovers.Count} residual trace item(s). Awaiting review...\n";
+
+                    bool? dialogResult = false;
+                    LeftoverReviewWindow? reviewWin = null;
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        reviewWin = new LeftoverReviewWindow(item.Name, item.Version, leftovers)
+                        {
+                            Owner = Application.Current.MainWindow
+                        };
+                        dialogResult = reviewWin.ShowDialog();
+                    });
+
+                    if (dialogResult == true && reviewWin != null)
+                    {
+                        var selected = reviewWin.Items.Where(i => i.IsSelected).ToList();
+                        if (selected.Count > 0)
+                        {
+                            DrawerOutput += $"\n[Deep Cleaner] Permanently deleting {selected.Count} selected leftover item(s)...\n";
+                            var cleanResult = await LeftoverCleanerService.CleanLeftoversAsync(selected, line =>
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    DrawerOutput += line + "\n";
+                                });
+                            }, _operationCts.Token);
+
+                            DrawerOutput += $"\n[Deep Cleaner] Completed. {cleanResult.DeletedCount} of {cleanResult.TotalProcessed} item(s) deleted ({LeftoverCleanerService.FormatBytes(cleanResult.TotalBytesFreed)} freed).\n";
+                        }
+                        else
+                        {
+                            DrawerOutput += "\n[Deep Cleaner] No leftover items selected for deletion.\n";
+                        }
+                    }
+                    else
+                    {
+                        DrawerOutput += "\n[Deep Cleaner] Residual trace cleanup skipped by user.\n";
+                    }
+                }
+
+                await RefreshAsync();
+
+                if (exitCode == 0 && !_operationCts.Token.IsCancellationRequested)
+                {
+                    IsDrawerRunning = false;
+                    _operationCts?.Dispose();
+                    _operationCts = null;
+                    await ScheduleDrawerAutoCloseAsync(2);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            DrawerOutput += "\nOperation was cancelled by user.\n";
+        }
+        catch (Exception ex)
+        {
+            DrawerOutput += $"\nError during uninstall / residual clean: {ex.Message}\n";
+        }
+        finally
+        {
+            IsDrawerRunning = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+        }
+    }
+
+    private async Task RunForceRemovalCoreAsync(PackageItem item)
+    {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+
+        DrawerTitle = $"Force Removing {item.Name}...";
+        DrawerOutput = $"[Force Removal] Scanning system for all files, directories, shortcuts, and registry entries for \"{item.Name}\"...\n\n";
+        IsDrawerOpen = true;
+        IsDrawerRunning = true;
+
+        _operationCts = new CancellationTokenSource();
+
+        try
+        {
+            var leftovers = await LeftoverCleanerService.ScanLeftoversAsync(item, _operationCts.Token);
+
+            if (leftovers.Count == 0)
+            {
+                DrawerOutput += "[Force Removal] No associated files, directories, or registry keys were found.\n";
+            }
+            else
+            {
+                DrawerOutput += $"[Force Removal] Found {leftovers.Count} item(s). Awaiting review...\n";
+
+                bool? dialogResult = false;
+                LeftoverReviewWindow? reviewWin = null;
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    reviewWin = new LeftoverReviewWindow(item.Name, item.Version, leftovers)
+                    {
+                        Owner = Application.Current.MainWindow
+                    };
+                    dialogResult = reviewWin.ShowDialog();
+                });
+
+                if (dialogResult == true && reviewWin != null)
+                {
+                    var selected = reviewWin.Items.Where(i => i.IsSelected).ToList();
+                    if (selected.Count > 0)
+                    {
+                        DrawerOutput += $"\n[Force Removal] Deleting {selected.Count} item(s)...\n";
+                        var cleanResult = await LeftoverCleanerService.CleanLeftoversAsync(selected, line =>
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                DrawerOutput += line + "\n";
+                            });
+                        }, _operationCts.Token);
+
+                        DrawerOutput += $"\n[Force Removal] Completed. {cleanResult.DeletedCount} item(s) removed ({LeftoverCleanerService.FormatBytes(cleanResult.TotalBytesFreed)} freed).\n";
+
+                        await RefreshAsync();
+
+                        if (!_operationCts.Token.IsCancellationRequested)
+                        {
+                            IsDrawerRunning = false;
+                            _operationCts?.Dispose();
+                            _operationCts = null;
+                            await ScheduleDrawerAutoCloseAsync(2);
+                        }
+                    }
+                    else
+                    {
+                        DrawerOutput += "\n[Force Removal] No items selected. Operation aborted.\n";
+                    }
+                }
+                else
+                {
+                    DrawerOutput += "\n[Force Removal] Operation cancelled by user.\n";
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            DrawerOutput += "\nOperation was cancelled by user.\n";
+        }
+        catch (Exception ex)
+        {
+            DrawerOutput += $"\nError during force removal: {ex.Message}\n";
+        }
+        finally
+        {
+            IsDrawerRunning = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+        }
     }
 
     [RelayCommand]

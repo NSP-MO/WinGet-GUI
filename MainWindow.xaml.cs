@@ -197,7 +197,14 @@ public partial class MainWindow : Window
         {
             if (ViewModel.SelectedItem != null && !QuickSearchBox.IsFocused && !OnlineSearchBox.IsFocused)
             {
-                ViewModel.UninstallCommand.Execute(ViewModel.SelectedItem);
+                if (Keyboard.Modifiers == ModifierKeys.Shift)
+                {
+                    ViewModel.ForceRemovalCommand.Execute(ViewModel.SelectedItem);
+                }
+                else
+                {
+                    ViewModel.UninstallCommand.Execute(ViewModel.SelectedItem);
+                }
                 e.Handled = true;
             }
         }
