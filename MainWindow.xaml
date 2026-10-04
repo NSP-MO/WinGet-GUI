@@ -318,6 +318,8 @@
                       ContextMenuOpening="OnListViewContextMenuOpening"
                       Background="{StaticResource BrushCanvas}"
                       BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                      PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab0Vis}}">
                 <ListView.View>
                     <GridView>
@@ -431,6 +433,8 @@
                       ContextMenuOpening="OnListViewContextMenuOpening"
                       Background="{StaticResource BrushCanvas}"
                       BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                      PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}">
                 <ListView.View>
                     <GridView>
@@ -572,13 +576,16 @@
                     </Grid>
                 </Border>
 
-                <ListView Grid.Row="1"
+                <ListView x:Name="DiscoverListView"
+                          Grid.Row="1"
                           ItemsSource="{Binding SearchResults}"
                           SelectedItem="{Binding SelectedItem}"
                           AlternationCount="2"
                           ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
                           Background="{StaticResource BrushCanvas}"
-                          BorderThickness="0">
+                          BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                          PreviewMouseWheel="OnListViewPreviewMouseWheel">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Package Name" Width="220">
@@ -750,7 +757,7 @@
                 </Border>
 
                 <!-- Console Output ScrollViewer -->
-                <ScrollViewer x:Name="ConsoleScrollViewer" Grid.Row="1" Background="#121212" Padding="10">
+                <ScrollViewer x:Name="ConsoleScrollViewer" Grid.Row="1" Background="#121212" Padding="10" HorizontalScrollBarVisibility="Disabled">
                     <TextBlock Text="{Binding DrawerOutput}"
                                Foreground="#DCDCDC"
                                FontFamily="{StaticResource MonoFont}"
@@ -795,7 +802,7 @@
                                    VerticalAlignment="Center" />
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" Padding="14">
+                    <ScrollViewer Grid.Row="1" Padding="14" HorizontalScrollBarVisibility="Disabled">
                         <TextBlock Text="{Binding DetailsContent}"
                                    Foreground="{StaticResource BrushTextSecondary}"
                                    FontFamily="{StaticResource MonoFont}"

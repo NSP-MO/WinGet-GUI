@@ -354,4 +354,50 @@ public partial class MainWindow : Window
             btn.IsEnabled = true;
         }
     }
+
+    private readonly Dictionary<object, ScrollViewer> _scrollViewerCache = new();
+
+    private void OnListViewPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+        {
+            if (sender is DependencyObject dep)
+            {
+                if (!_scrollViewerCache.TryGetValue(sender, out var scrollViewer))
+                {
+                    scrollViewer = (dep as ScrollViewer) ?? FindVisualChild<ScrollViewer>(dep);
+                    if (scrollViewer != null)
+                    {
+                        _scrollViewerCache[sender] = scrollViewer;
+                    }
+                }
+
+                if (scrollViewer != null)
+                {
+                    if (scrollViewer.ScrollableWidth > 0)
+                    {
+                        double targetOffset = scrollViewer.HorizontalOffset - (e.Delta * 0.5);
+                        scrollViewer.ScrollToHorizontalOffset(targetOffset);
+                    }
+                    e.Handled = true;
+                }
+            }
+        }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent == null) return null;
+        int childrenCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childrenCount; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T typedChild)
+                return typedChild;
+            var result = FindVisualChild<T>(child);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
 }
