@@ -45,6 +45,10 @@ public partial class MainWindow : Window
         {
             SyncActiveListSelection();
         }
+        else if (e.PropertyName == nameof(MainViewModel.DrawerOutput))
+        {
+            ConsoleScrollViewer?.ScrollToEnd();
+        }
     }
 
     private void SyncActiveListSelection()

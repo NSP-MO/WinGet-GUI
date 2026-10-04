@@ -369,11 +369,23 @@ public class WingetService
         return string.IsNullOrWhiteSpace(stdout) ? stderr : stdout;
     }
 
+    public static string GetWingetPath()
+    {
+        var localAppWinget = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft", "WindowsApps", "winget.exe");
+        if (File.Exists(localAppWinget))
+        {
+            return localAppWinget;
+        }
+        return "winget";
+    }
+
     public async Task<int> StreamCommandAsync(string commandArgs, Action<string> onOutputLine, CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "winget",
+            FileName = GetWingetPath(),
             Arguments = commandArgs,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -411,9 +423,13 @@ public class WingetService
 
     private static async Task<(int ExitCode, string StdOut, string StdErr)> RunProcessAsync(string filename, string args, CancellationToken ct = default)
     {
+        var targetFile = filename.Equals("winget", StringComparison.OrdinalIgnoreCase)
+            ? GetWingetPath()
+            : filename;
+
         var psi = new ProcessStartInfo
         {
-            FileName = filename,
+            FileName = targetFile,
             Arguments = args,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

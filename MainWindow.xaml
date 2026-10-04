@@ -714,12 +714,19 @@
                                    FontWeight="SemiBold"
                                    FontSize="12.5"
                                    VerticalAlignment="Center" />
-                        <Button Content="Close"
-                                Style="{StaticResource DarkButtonStyle}"
-                                HorizontalAlignment="Right"
-                                Padding="10,3"
-                                Command="{Binding CloseDrawerCommand}"
-                                IsEnabled="{Binding IsDrawerRunning, Converter={StaticResource InvBoolToVis}}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="Cancel"
+                                    Style="{StaticResource DarkButtonStyle}"
+                                    Padding="10,3"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding CancelOperationCommand}"
+                                    Visibility="{Binding IsDrawerRunning, Converter={StaticResource BoolToVis}}" />
+                            <Button Content="Close"
+                                    Style="{StaticResource DarkButtonStyle}"
+                                    Padding="10,3"
+                                    Command="{Binding CloseDrawerCommand}"
+                                    IsEnabled="{Binding IsDrawerRunning, Converter={StaticResource InvBoolToVis}}" />
+                        </StackPanel>
                     </Grid>
                 </Border>
 

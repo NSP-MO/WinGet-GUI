@@ -369,8 +369,8 @@ public partial class MainViewModel : ObservableObject
 
         if (confirm != MessageBoxResult.Yes) return;
 
-        var arg = "upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements";
-        await RunWingetOperationAsync("Upgrading All Packages...", arg, true);
+        var packagesToUpgrade = UpgradePackages.ToList();
+        await RunWingetBatchOperationAsync($"Upgrading All ({packagesToUpgrade.Count}) Packages...", packagesToUpgrade);
     }
 
     [RelayCommand]
@@ -586,6 +586,13 @@ public partial class MainViewModel : ObservableObject
         IsDetailsOpen = false;
     }
 
+    [RelayCommand]
+    public void CancelOperation()
+    {
+        if (!IsDrawerRunning) return;
+        _operationCts?.Cancel();
+    }
+
     private async Task RunWingetOperationAsync(string title, string args, bool refreshOnSuccess)
     {
         DrawerTitle = title;
@@ -646,54 +653,56 @@ public partial class MainViewModel : ObservableObject
     private async Task RunWingetBatchOperationAsync(string title, List<PackageItem> items)
     {
         DrawerTitle = title;
-        DrawerOutput = $"Starting batch upgrade for {items.Count} packages...\n\n";
         IsDrawerOpen = true;
         IsDrawerRunning = true;
-
         _operationCts = new CancellationTokenSource();
 
         try
         {
-            int successCount = 0;
-            int failedCount = 0;
-
-            for (int i = 0; i < items.Count; i++)
+            if (ElevationService.IsRunningAsAdministrator())
             {
-                if (_operationCts.Token.IsCancellationRequested) break;
-
-                var item = items[i];
-                var targetVer = !string.IsNullOrWhiteSpace(item.AvailableVersion) ? item.AvailableVersion : "latest";
-                DrawerOutput += "--------------------------------------------------\n";
-                DrawerOutput += $"[{i + 1}/{items.Count}] Upgrading {item.Name} ({item.Id}) to {targetVer}...\n";
-                DrawerOutput += "--------------------------------------------------\n";
-
-                var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
-
-                var exitCode = await _wingetService.StreamCommandAsync(arg, line =>
+                DrawerOutput = $"Starting batch upgrade for {items.Count} packages (Administrator mode)...\n\n";
+                await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
+                await RefreshAsync();
+            }
+            else
+            {
+                DrawerOutput = "Requesting Administrator privileges for unattended batch upgrade...\n";
+                try
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        DrawerOutput += line + "\n";
-                    });
-                }, _operationCts.Token);
+                    await ElevationService.RunElevatedBatchUpgradeAsync(
+                        items,
+                        line =>
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                DrawerOutput += line + "\n";
+                            });
+                        },
+                        _operationCts.Token);
 
-                if (exitCode == 0)
-                {
-                    successCount++;
-                    DrawerOutput += $"\n[Success] {item.Name} upgraded successfully.\n\n";
+                    await RefreshAsync();
                 }
-                else
+                catch (OperationCanceledException ex) when (ex.InnerException is System.ComponentModel.Win32Exception winEx && winEx.NativeErrorCode == 1223)
                 {
-                    failedCount++;
-                    DrawerOutput += $"\n[Failed] {item.Name} exited with code: {exitCode}\n\n";
+                    var fallback = MessageBox.Show(
+                        "Administrator privileges were not granted.\n\nDo you want to proceed with the batch upgrade anyway without elevation? (Note: UAC prompts may appear for individual package installers)",
+                        "WinGet GUI",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (fallback == MessageBoxResult.Yes)
+                    {
+                        DrawerOutput += "\n[Notice] Proceeding without elevation...\n\n";
+                        await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
+                        await RefreshAsync();
+                    }
+                    else
+                    {
+                        DrawerOutput += "\n[Notice] Batch upgrade aborted by user.\n";
+                    }
                 }
             }
-
-            DrawerOutput += "==================================================\n";
-            DrawerOutput += $"Batch upgrade completed: {successCount} succeeded, {failedCount} failed.\n";
-            DrawerOutput += "==================================================\n";
-
-            await RefreshAsync();
         }
         catch (OperationCanceledException)
         {
@@ -709,5 +718,47 @@ public partial class MainViewModel : ObservableObject
             _operationCts?.Dispose();
             _operationCts = null;
         }
+    }
+
+    private async Task RunWingetBatchOperationCoreAsync(List<PackageItem> items, CancellationToken ct)
+    {
+        int successCount = 0;
+        int failedCount = 0;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            var item = items[i];
+            var targetVer = !string.IsNullOrWhiteSpace(item.AvailableVersion) ? item.AvailableVersion : "latest";
+            DrawerOutput += "--------------------------------------------------\n";
+            DrawerOutput += $"[{i + 1}/{items.Count}] Upgrading {item.Name} ({item.Id}) to {targetVer}...\n";
+            DrawerOutput += "--------------------------------------------------\n";
+
+            var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+
+            var exitCode = await _wingetService.StreamCommandAsync(arg, line =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    DrawerOutput += line + "\n";
+                });
+            }, ct);
+
+            if (exitCode == 0)
+            {
+                successCount++;
+                DrawerOutput += $"\n[Success] {item.Name} upgraded successfully.\n\n";
+            }
+            else
+            {
+                failedCount++;
+                DrawerOutput += $"\n[Failed] {item.Name} exited with code: {exitCode}\n\n";
+            }
+        }
+
+        DrawerOutput += "==================================================\n";
+        DrawerOutput += $"Batch upgrade completed: {successCount} succeeded, {failedCount} failed.\n";
+        DrawerOutput += "==================================================\n";
     }
 }
