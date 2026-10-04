@@ -517,9 +517,10 @@ public class WingetService
         long totalBytes = 0;
         var operationStartTime = DateTime.UtcNow.AddSeconds(-5);
 
-        var wingetTempPath = Path.Combine(
+        var tempRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Temp", "WinGet");
+            "Temp");
+        var wingetTempPath = Path.Combine(tempRoot, "WinGet");
 
         void TryQueryContentLength(string url)
         {
@@ -528,17 +529,125 @@ public class WingetService
             {
                 try
                 {
-                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
-                    using var req = new HttpRequestMessage(HttpMethod.Head, url);
-                    req.Headers.UserAgent.ParseAdd("WinGet");
-                    using var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, monitorCts.Token);
-                    if (resp.Content.Headers.ContentLength.HasValue && resp.Content.Headers.ContentLength.Value > 0)
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("WinGet");
+
+                    // 1. Try HEAD request first
+                    try
                     {
-                        Interlocked.Exchange(ref totalBytes, resp.Content.Headers.ContentLength.Value);
+                        using var headReq = new HttpRequestMessage(HttpMethod.Head, url);
+                        using var headResp = await client.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead, monitorCts.Token);
+                        if (headResp.IsSuccessStatusCode && headResp.Content.Headers.ContentLength.HasValue && headResp.Content.Headers.ContentLength.Value > 0)
+                        {
+                            Interlocked.Exchange(ref totalBytes, headResp.Content.Headers.ContentLength.Value);
+                            return;
+                        }
                     }
+                    catch { }
+
+                    // 2. Fallback to GET Range: bytes=0-0 (downloads only 1 single byte)
+                    try
+                    {
+                        using var getReq = new HttpRequestMessage(HttpMethod.Get, url);
+                        getReq.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 0);
+                        using var getResp = await client.SendAsync(getReq, HttpCompletionOption.ResponseHeadersRead, monitorCts.Token);
+                        if (getResp.Content.Headers.ContentRange?.Length is long rangeLen && rangeLen > 0)
+                        {
+                            Interlocked.Exchange(ref totalBytes, rangeLen);
+                            return;
+                        }
+                        if (getResp.Content.Headers.ContentLength.HasValue && getResp.Content.Headers.ContentLength.Value > 0)
+                        {
+                            Interlocked.Exchange(ref totalBytes, getResp.Content.Headers.ContentLength.Value);
+                            return;
+                        }
+                    }
+                    catch { }
                 }
                 catch { }
             }, monitorCts.Token);
+        }
+
+        FileInfo? FindBestActiveFile()
+        {
+            FileInfo? best = null;
+            long bestSize = -1;
+            DateTime bestTime = operationStartTime;
+
+            // 1. Check WinGet temp directory (strictly excluding \cache\)
+            if (Directory.Exists(wingetTempPath))
+            {
+                try
+                {
+                    var di = new DirectoryInfo(wingetTempPath);
+                    foreach (var file in di.GetFiles("*", SearchOption.AllDirectories))
+                    {
+                        if (file.FullName.Contains(@"\cache\", StringComparison.OrdinalIgnoreCase) ||
+                            file.FullName.EndsWith(@"\cache", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var ext = file.Extension;
+                        if (ext.Equals(".yaml", StringComparison.OrdinalIgnoreCase) ||
+                            ext.Equals(".mszyml", StringComparison.OrdinalIgnoreCase) ||
+                            ext.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+                            ext.Equals(".log", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (file.LastWriteTimeUtc >= operationStartTime)
+                        {
+                            long physical = GetPhysicalFileSize(file.FullName);
+                            long size = physical >= 0 ? physical : file.Length;
+                            if ((size > 65536 || file.Length > 65536) && (size > bestSize || file.LastWriteTimeUtc > bestTime))
+                            {
+                                best = file;
+                                bestSize = size;
+                                bestTime = file.LastWriteTimeUtc;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Check top-level %LOCALAPPDATA%\Temp (*.tmp, *.exe, *.msi, *.msix, *.zip)
+            if (Directory.Exists(tempRoot))
+            {
+                try
+                {
+                    var di = new DirectoryInfo(tempRoot);
+                    foreach (var file in di.GetFiles("*.*", SearchOption.TopDirectoryOnly))
+                    {
+                        var ext = file.Extension;
+                        if (!ext.Equals(".tmp", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".exe", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".msi", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".msix", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        if (file.LastWriteTimeUtc >= operationStartTime)
+                        {
+                            long physical = GetPhysicalFileSize(file.FullName);
+                            long size = physical >= 0 ? physical : file.Length;
+                            if ((size > 65536 || file.Length > 65536) && (size > bestSize || file.LastWriteTimeUtc > bestTime))
+                            {
+                                best = file;
+                                bestSize = size;
+                                bestTime = file.LastWriteTimeUtc;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return best;
         }
 
         void StartDownloadMonitor()
@@ -549,122 +658,111 @@ public class WingetService
             {
                 double lastReportedMb = -1;
                 int lastReportedPct = -1;
+                long lastReportedTotal = -1;
                 string? trackedFilePath = null;
+                int ticksSinceScan = 0;
 
                 while (!monitorCts.Token.IsCancellationRequested)
                 {
                     try
                     {
-                        if (Directory.Exists(wingetTempPath))
-                        {
-                            FileInfo? activeFile = null;
+                        FileInfo? activeFile = null;
+                        ticksSinceScan++;
 
-                            if (!string.IsNullOrEmpty(trackedFilePath) && File.Exists(trackedFilePath))
+                        if (!string.IsNullOrEmpty(trackedFilePath) && File.Exists(trackedFilePath))
+                        {
+                            activeFile = new FileInfo(trackedFilePath);
+                            activeFile.Refresh();
+                            long currentSize = activeFile.Length;
+
+                            // Periodically check if a larger active installer candidate exists
+                            if (ticksSinceScan >= 4 || currentSize <= 65536)
                             {
-                                activeFile = new FileInfo(trackedFilePath);
+                                ticksSinceScan = 0;
+                                var candidate = FindBestActiveFile();
+                                if (candidate != null && candidate.FullName != trackedFilePath)
+                                {
+                                    if (candidate.Length > currentSize)
+                                    {
+                                        activeFile = candidate;
+                                        trackedFilePath = activeFile.FullName;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            activeFile = FindBestActiveFile();
+                            if (activeFile != null)
+                            {
+                                trackedFilePath = activeFile.FullName;
+                            }
+                        }
+
+                        long currentDownloaded = 0;
+                        long effectiveTotal = Interlocked.Read(ref totalBytes);
+
+                        if (activeFile != null && File.Exists(activeFile.FullName))
+                        {
+                            activeFile.Refresh();
+                            long logical = activeFile.Length;
+                            long physical = GetPhysicalFileSize(activeFile.FullName);
+
+                            if (physical >= 0 && logical > physical)
+                            {
+                                // Sparse pre-allocated file (DeliveryOptimization / BITS)
+                                currentDownloaded = physical;
+                                effectiveTotal = logical;
+                            }
+                            else if (physical >= 0)
+                            {
+                                currentDownloaded = logical;
+                                if (effectiveTotal <= 0 && Interlocked.Read(ref totalBytes) > 0)
+                                {
+                                    effectiveTotal = Interlocked.Read(ref totalBytes);
+                                }
                             }
                             else
                             {
-                                var di = new DirectoryInfo(wingetTempPath);
-                                FileInfo? bestCandidate = null;
-                                long bestSize = -1;
-                                DateTime bestTime = operationStartTime;
+                                currentDownloaded = logical;
+                            }
+                        }
 
-                                foreach (var file in di.GetFiles("*", SearchOption.AllDirectories))
-                                {
-                                    var ext = file.Extension;
-                                    if (ext.Equals(".yaml", StringComparison.OrdinalIgnoreCase) ||
-                                        ext.Equals(".mszyml", StringComparison.OrdinalIgnoreCase) ||
-                                        ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        continue;
-                                    }
-
-                                    if (file.LastWriteTimeUtc >= operationStartTime)
-                                    {
-                                        long physical = GetPhysicalFileSize(file.FullName);
-                                        long size = physical >= 0 ? physical : file.Length;
-                                        if (file.LastWriteTimeUtc > bestTime || size > bestSize)
-                                        {
-                                            bestCandidate = file;
-                                            bestSize = size;
-                                            bestTime = file.LastWriteTimeUtc;
-                                        }
-                                    }
-                                }
-
-                                if (bestCandidate != null)
-                                {
-                                    activeFile = bestCandidate;
-                                    trackedFilePath = activeFile.FullName;
-                                }
+                        if (effectiveTotal > 0 || currentDownloaded > 0)
+                        {
+                            var currMb = (double)currentDownloaded / (1024.0 * 1024.0);
+                            double percentage = 0;
+                            if (effectiveTotal > 0 && effectiveTotal >= currentDownloaded)
+                            {
+                                percentage = (currentDownloaded * 100.0) / effectiveTotal;
+                                if (percentage >= 99.0) percentage = 99.0;
                             }
 
-                            if (activeFile != null)
+                            int intPct = (int)Math.Floor(percentage);
+
+                            if (Math.Abs(currMb - lastReportedMb) >= 0.2 || intPct != lastReportedPct || effectiveTotal != lastReportedTotal)
                             {
-                                activeFile.Refresh();
-                                long logical = activeFile.Length;
-                                long physical = GetPhysicalFileSize(activeFile.FullName);
+                                lastReportedMb = currMb;
+                                lastReportedPct = intPct;
+                                lastReportedTotal = effectiveTotal;
 
-                                long currentDownloaded;
-                                long effectiveTotal = Interlocked.Read(ref totalBytes);
-
-                                if (physical >= 0 && logical > physical)
+                                string progressText;
+                                if (effectiveTotal > 0)
                                 {
-                                    // Sparse pre-allocated file (DeliveryOptimization / BITS)
-                                    // logical IS the total size; physical IS the actual bytes written so far!
-                                    currentDownloaded = physical;
-                                    effectiveTotal = logical;
-                                }
-                                else if (physical >= 0)
-                                {
-                                    currentDownloaded = logical;
-                                    if (effectiveTotal <= 0 && Interlocked.Read(ref totalBytes) > 0)
-                                    {
-                                        effectiveTotal = Interlocked.Read(ref totalBytes);
-                                    }
+                                    double totMb = (double)effectiveTotal / (1024.0 * 1024.0);
+                                    progressText = $"Downloading: {currMb:0.#} MB / {totMb:0.#} MB ({intPct}%)";
                                 }
                                 else
                                 {
-                                    currentDownloaded = logical;
+                                    progressText = $"Downloading: {currMb:0.#} MB";
                                 }
 
-                                if (currentDownloaded > 0)
-                                {
-                                    var currMb = (double)currentDownloaded / (1024.0 * 1024.0);
-                                    double percentage = 0;
-                                    if (effectiveTotal > 0 && effectiveTotal >= currentDownloaded)
-                                    {
-                                        percentage = (currentDownloaded * 100.0) / effectiveTotal;
-                                        if (percentage >= 99.0) percentage = 99.0;
-                                    }
-
-                                    int intPct = (int)Math.Floor(percentage);
-
-                                    if (Math.Abs(currMb - lastReportedMb) >= 0.2 || intPct != lastReportedPct)
-                                    {
-                                        lastReportedMb = currMb;
-                                        lastReportedPct = intPct;
-
-                                        string progressText;
-                                        if (effectiveTotal > 0)
-                                        {
-                                            double totMb = (double)effectiveTotal / (1024.0 * 1024.0);
-                                            progressText = $"Downloading: {currMb:0.#} MB / {totMb:0.#} MB ({intPct}%)";
-                                        }
-                                        else
-                                        {
-                                            progressText = $"Downloading: {currMb:0.#} MB";
-                                        }
-
-                                        onProgress?.Invoke(new DownloadProgressInfo(
-                                            "Downloading",
-                                            currentDownloaded,
-                                            effectiveTotal,
-                                            percentage,
-                                            progressText));
-                                    }
-                                }
+                                onProgress?.Invoke(new DownloadProgressInfo(
+                                    "Downloading",
+                                    currentDownloaded,
+                                    effectiveTotal,
+                                    percentage,
+                                    progressText));
                             }
                         }
                     }
