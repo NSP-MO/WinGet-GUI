@@ -927,6 +927,8 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RunWingetBatchOperationAsync(string title, List<PackageItem> items)
     {
+        if (items.Count == 0) return;
+
         if (_autoCloseCts != null)
         {
             _autoCloseCts.Cancel();
@@ -944,53 +946,10 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            if (ElevationService.IsRunningAsAdministrator())
-            {
-                DrawerOutput = $"Starting batch upgrade for {items.Count} packages (Administrator mode)...\n\n";
-                var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
-                await RefreshAsync();
-                allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
-            }
-            else
-            {
-                DrawerOutput = "Requesting Administrator privileges for unattended batch upgrade...\n";
-                try
-                {
-                    var (succ, fail) = await ElevationService.RunElevatedBatchUpgradeAsync(
-                        items,
-                        line =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                DrawerOutput += line + "\n";
-                            });
-                        },
-                        _operationCts.Token);
-
-                    await RefreshAsync();
-                    allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
-                }
-                catch (OperationCanceledException ex) when (ex.InnerException is System.ComponentModel.Win32Exception winEx && winEx.NativeErrorCode == 1223)
-                {
-                    var fallback = MessageBox.Show(
-                        "Administrator privileges were not granted.\n\nDo you want to proceed with the batch upgrade anyway without elevation? (Note: UAC prompts may appear for individual package installers)",
-                        "WinGet GUI",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-
-                    if (fallback == MessageBoxResult.Yes)
-                    {
-                        DrawerOutput += "\n[Notice] Proceeding without elevation...\n\n";
-                        var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
-                        await RefreshAsync();
-                        allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
-                    }
-                    else
-                    {
-                        DrawerOutput += "\n[Notice] Batch upgrade aborted by user.\n";
-                    }
-                }
-            }
+            DrawerOutput = $"Starting batch upgrade for {items.Count} packages (Administrator mode)...\n\n";
+            var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
+            await RefreshAsync();
+            allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
 
             if (allSucceeded)
             {
