@@ -2,6 +2,10 @@
 bin/
 obj/
 publish/
+publish_fdd/
+installer/output/
+installer/redist/
+installer/redist/**
 
 # Visual Studio / Rider / VS Code cache
 .vs/
