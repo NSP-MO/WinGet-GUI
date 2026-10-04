@@ -12,7 +12,7 @@ using WingetGui.Services;
 
 namespace WingetGui.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly WingetService _wingetService;
     private CancellationTokenSource? _operationCts;
@@ -240,6 +240,17 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private readonly NetworkService _networkService;
+
+    [ObservableProperty]
+    private bool _isOfflineMode;
+
+    [ObservableProperty]
+    private bool _showOfflineUpdatesMessage;
+
+    [ObservableProperty]
+    private bool _showOfflineDiscoverMessage;
+
     [ObservableProperty]
     private bool _isAutoClosing;
 
@@ -258,12 +269,51 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _wingetService = new WingetService();
+        _networkService = new NetworkService();
+        _networkService.ConnectivityChanged += OnConnectivityChanged;
 
         FilteredInstalledPackages = CollectionViewSource.GetDefaultView(InstalledPackages);
         FilteredInstalledPackages.Filter = FilterInstalledPredicate;
 
         FilteredUpgradePackages = CollectionViewSource.GetDefaultView(UpgradePackages);
         FilteredUpgradePackages.Filter = FilterUpgradePredicate;
+    }
+
+    private void OnConnectivityChanged(bool isConnected)
+    {
+        Application.Current?.Dispatcher.InvokeAsync(async () =>
+        {
+            if (isConnected)
+            {
+                if (IsOfflineMode && !IsLoading && !IsDrawerRunning)
+                {
+                    // Internet restored: automatically refresh updates in background
+                    await RefreshAsync();
+                }
+                else
+                {
+                    IsOfflineMode = false;
+                    ShowOfflineDiscoverMessage = false;
+                    if (UpgradePackages.Count > 0)
+                    {
+                        ShowOfflineUpdatesMessage = false;
+                    }
+                }
+            }
+            else
+            {
+                IsOfflineMode = true;
+                if (UpgradePackages.Count == 0)
+                {
+                    UpdatesTabTitle = "Updates (Offline)";
+                    ShowOfflineUpdatesMessage = true;
+                }
+                if (SearchResults.Count == 0)
+                {
+                    ShowOfflineDiscoverMessage = true;
+                }
+            }
+        });
     }
 
     partial void OnSearchTextChanged(string value)
@@ -325,13 +375,25 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var installedTask = _wingetService.GetInstalledPackagesAsync();
-            var upgradesTask = _wingetService.GetAvailableUpgradesAsync();
+            var isConnected = await NetworkService.CheckInternetConnectivityAsync();
+            IsOfflineMode = !isConnected;
 
-            await Task.WhenAll(installedTask, upgradesTask);
+            var installedTask = _wingetService.GetInstalledPackagesAsync();
+            Task<List<PackageItem>>? upgradesTask = isConnected
+                ? _wingetService.GetAvailableUpgradesAsync()
+                : null;
+
+            if (upgradesTask != null)
+            {
+                await Task.WhenAll(installedTask, upgradesTask);
+            }
+            else
+            {
+                await installedTask;
+            }
 
             var installed = await installedTask;
-            var upgrades = await upgradesTask;
+            var upgrades = upgradesTask != null ? await upgradesTask : new List<PackageItem>();
 
             // Merge upgrade info into installed packages
             var upgradeMap = upgrades.ToDictionary(u => u.Id, u => u.AvailableVersion, StringComparer.OrdinalIgnoreCase);
@@ -358,7 +420,19 @@ public partial class MainViewModel : ObservableObject
 
             InstalledCount = InstalledPackages.Count;
             InstalledTabTitle = $"Installed ({InstalledCount})";
-            UpdateUpgradesCountAndTitle();
+
+            if (IsOfflineMode)
+            {
+                UpdatesTabTitle = "Updates (Offline)";
+                ShowOfflineUpdatesMessage = UpgradePackages.Count == 0;
+                ShowOfflineDiscoverMessage = SearchResults.Count == 0;
+            }
+            else
+            {
+                UpdateUpgradesCountAndTitle();
+                ShowOfflineUpdatesMessage = false;
+                ShowOfflineDiscoverMessage = false;
+            }
 
             UpdateStatusSummary();
             UpdatePinMenuHeader();
@@ -421,6 +495,19 @@ public partial class MainViewModel : ObservableObject
         var query = !string.IsNullOrWhiteSpace(OnlineSearchText) ? OnlineSearchText : SearchText;
         if (string.IsNullOrWhiteSpace(query)) return;
 
+        var isConnected = await NetworkService.CheckInternetConnectivityAsync();
+        if (!isConnected)
+        {
+            IsOfflineMode = true;
+            ShowOfflineDiscoverMessage = true;
+            MessageBox.Show(
+                "An internet connection is required to search and install new packages from the WinGet repository.",
+                "Offline Mode",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         IsLoading = true;
         LoadingStatus = $"Searching winget repository for \"{query}\"...";
 
@@ -433,6 +520,7 @@ public partial class MainViewModel : ObservableObject
                 SearchResults.Add(res);
             }
             SelectedTabIndex = 2; // Switch to Discover tab
+            ShowOfflineDiscoverMessage = false;
             UpdateStatusSummary();
         }
         catch (Exception ex)
@@ -1224,6 +1312,16 @@ public partial class MainViewModel : ObservableObject
                 DrawerOutput += $"\nProcess completed with exit code: {exitCode}\n";
             }
 
+            if (exitCode != 0)
+            {
+                var isConnected = await NetworkService.CheckInternetConnectivityAsync();
+                if (!isConnected)
+                {
+                    IsOfflineMode = true;
+                    DrawerOutput += "\n[Network Notice] Internet connection was interrupted during the operation.\n";
+                }
+            }
+
             if (exitCode == 0 && refreshOnSuccess)
             {
                 await RefreshAsync();
@@ -1352,6 +1450,15 @@ public partial class MainViewModel : ObservableObject
             {
                 failedCount++;
                 DrawerOutput += $"\n[Failed] {item.Name} exited with code: {exitCode}\n\n";
+
+                var isConnected = await NetworkService.CheckInternetConnectivityAsync();
+                if (!isConnected)
+                {
+                    IsOfflineMode = true;
+                    DrawerOutput += "[Network Notice] Internet connection was lost. Halting remaining batch operations.\n\n";
+                    failedCount += (items.Count - (i + 1));
+                    break;
+                }
             }
         }
 
@@ -1360,5 +1467,14 @@ public partial class MainViewModel : ObservableObject
         DrawerOutput += "==================================================\n";
 
         return (successCount, failedCount);
+    }
+
+    public void Dispose()
+    {
+        _networkService.ConnectivityChanged -= OnConnectivityChanged;
+        _networkService.Dispose();
+        _operationCts?.Dispose();
+        _autoCloseCts?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

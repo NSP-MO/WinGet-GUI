@@ -459,108 +459,142 @@
             </ListView>
 
             <!-- View 1: Available Updates -->
-            <ListView x:Name="UpdatesListView"
-                      ItemsSource="{Binding FilteredUpgradePackages}"
-                      SelectedItem="{Binding SelectedItem}"
-                      SelectionMode="Extended"
-                      SelectionChanged="OnListViewSelectionChanged"
-                      AlternationCount="2"
-                      ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
-                      ContextMenu="{StaticResource PackageContextMenu}"
-                      ContextMenuOpening="OnListViewContextMenuOpening"
-                      Background="{StaticResource BrushCanvas}"
-                      BorderThickness="0"
-                      ScrollViewer.HorizontalScrollBarVisibility="Hidden"
-                      PreviewMouseWheel="OnListViewPreviewMouseWheel"
-                      Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="Program Name" Width="260">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate DataType="{x:Type models:PackageItem}">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Image Source="{Binding Icon}"
-                                               Width="16" Height="16"
-                                               Margin="0,0,8,0"
-                                               VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}"
-                                                   Foreground="{StaticResource BrushTextPrimary}"
-                                                   FontSize="12"
+            <Grid Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}">
+                <ListView x:Name="UpdatesListView"
+                          ItemsSource="{Binding FilteredUpgradePackages}"
+                          SelectedItem="{Binding SelectedItem}"
+                          SelectionMode="Extended"
+                          SelectionChanged="OnListViewSelectionChanged"
+                          AlternationCount="2"
+                          ItemContainerStyle="{StaticResource ZebraListViewItemStyle}"
+                          ContextMenu="{StaticResource PackageContextMenu}"
+                          ContextMenuOpening="OnListViewContextMenuOpening"
+                          Background="{StaticResource BrushCanvas}"
+                          BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                          PreviewMouseWheel="OnListViewPreviewMouseWheel">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Program Name" Width="260">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Image Source="{Binding Icon}"
+                                                   Width="16" Height="16"
+                                                   Margin="0,0,8,0"
                                                    VerticalAlignment="Center" />
-                                        <Border Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
-                                                Background="#333333"
-                                                BorderBrush="#444444"
-                                                BorderThickness="1"
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{StaticResource BrushTextPrimary}"
+                                                       FontSize="12"
+                                                       VerticalAlignment="Center" />
+                                            <Border Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
+                                                    Background="#333333"
+                                                    BorderBrush="#444444"
+                                                    BorderThickness="1"
+                                                    CornerRadius="2"
+                                                    Padding="4,0"
+                                                    Height="15"
+                                                    Margin="6,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="This update is hidden in winget">
+                                                <TextBlock Text="Hidden"
+                                                           Foreground="{StaticResource BrushTextMuted}"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn x:Name="CurrentVersionColumn" Header="Current Version" Width="130">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <TextBlock Text="{Binding Version}"
+                                                   ToolTip="{Binding Version}"
+                                                   Foreground="{StaticResource BrushTextSecondary}"
+                                                   FontSize="11.5"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="120"
+                                                   VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn x:Name="NewVersionColumn" Header="New Version" Width="130">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <Border Background="#0E639C"
                                                 CornerRadius="2"
-                                                Padding="4,0"
-                                                Height="15"
-                                                Margin="6,0,0,0"
-                                                VerticalAlignment="Center"
-                                                ToolTip="This update is hidden in winget">
-                                            <TextBlock Text="Hidden"
-                                                       Foreground="{StaticResource BrushTextMuted}"
-                                                       FontSize="10"
+                                                Padding="5,0"
+                                                Height="17"
+                                                HorizontalAlignment="Left"
+                                                ToolTip="{Binding AvailableVersion}"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding AvailableVersion}"
+                                                       Foreground="#FFFFFF"
+                                                       FontSize="11"
                                                        FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="115"
+                                                       Margin="0,-1,0,0"
+                                                       ToolTip="{Binding AvailableVersion}"
                                                        VerticalAlignment="Center" />
                                         </Border>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
 
-                        <GridViewColumn x:Name="CurrentVersionColumn" Header="Current Version" Width="130">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate DataType="{x:Type models:PackageItem}">
-                                    <TextBlock Text="{Binding Version}"
-                                               ToolTip="{Binding Version}"
-                                               Foreground="{StaticResource BrushTextSecondary}"
-                                               FontSize="11.5"
-                                               TextTrimming="CharacterEllipsis"
-                                               MaxWidth="120"
-                                               VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
+                            <GridViewColumn Header="Action" Width="85">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type models:PackageItem}">
+                                        <Button Content="Update"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                Padding="8,2"
+                                                FontSize="11"
+                                                Command="{Binding DataContext.UpgradeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
 
-                        <GridViewColumn x:Name="NewVersionColumn" Header="New Version" Width="130">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate DataType="{x:Type models:PackageItem}">
-                                    <Border Background="#0E639C"
-                                            CornerRadius="2"
-                                            Padding="5,0"
-                                            Height="17"
-                                            HorizontalAlignment="Left"
-                                            ToolTip="{Binding AvailableVersion}"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding AvailableVersion}"
-                                                   Foreground="#FFFFFF"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   MaxWidth="115"
-                                                   Margin="0,-1,0,0"
-                                                   ToolTip="{Binding AvailableVersion}"
-                                                   VerticalAlignment="Center" />
-                                    </Border>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-
-                        <GridViewColumn Header="Action" Width="85">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate DataType="{x:Type models:PackageItem}">
-                                    <Button Content="Update"
-                                            Style="{StaticResource AccentButtonStyle}"
-                                            Padding="8,2"
-                                            FontSize="11"
-                                            Command="{Binding DataContext.UpgradeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}" />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                    </GridView>
-                </ListView.View>
-            </ListView>
+                <!-- Offline Placeholder in Updates Tab -->
+                <Border Background="{StaticResource BrushCanvas}"
+                        Visibility="{Binding ShowOfflineUpdatesMessage, Converter={StaticResource BoolToVis}}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                        <Viewbox Width="36" Height="36" Margin="0,0,0,12" HorizontalAlignment="Center">
+                            <Path Fill="{StaticResource BrushTextMuted}"
+                                  Data="M23.64,7C23.19,6.66 18.71,3.34 12,3.34C9.4,3.34 7.17,3.84 5.32,4.49L7.75,6.9C9.28,6.46 10.97,6.2 12,6.2C17.35,6.2 21.17,8.74 21.61,9.05L23.64,7M2.81,2.81L1.39,4.22L3.78,6.61C2.08,7.37 0.55,8.35 0.36,8.48L2.39,10.53C2.56,10.37 4.54,9.1 7.21,8.24L9.79,10.82C7.94,11.39 6.43,12.3 6.3,12.38L8.33,14.43C8.75,14.13 10.27,13.15 12,12.65L18.39,19.04L19.8,17.63L2.81,2.81M12,16.5C11.14,16.5 10.37,16.85 9.78,17.41L12,19.63L14.22,17.41C13.63,16.85 12.86,16.5 12,16.5Z" />
+                        </Viewbox>
+                        <TextBlock Text="No Internet Connection"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,6" />
+                        <TextBlock Text="An internet connection is required to check for available updates. Installed programs are fully accessible offline."
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   FontSize="11.5"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="340"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,14" />
+                        <Button Content="Check Again"
+                                Style="{StaticResource DarkButtonStyle}"
+                                Padding="14,4"
+                                FontSize="11.5"
+                                HorizontalAlignment="Center"
+                                Command="{Binding RefreshCommand}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <!-- View 2: Discover & Install Packages -->
             <Grid Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab2Vis}}">
@@ -691,6 +725,40 @@
                         </GridView>
                     </ListView.View>
                 </ListView>
+
+                <!-- Offline Placeholder in Discover Tab -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource BrushCanvas}"
+                        Visibility="{Binding ShowOfflineDiscoverMessage, Converter={StaticResource BoolToVis}}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                        <Viewbox Width="36" Height="36" Margin="0,0,0,12" HorizontalAlignment="Center">
+                            <Path Fill="{StaticResource BrushTextMuted}"
+                                  Data="M23.64,7C23.19,6.66 18.71,3.34 12,3.34C9.4,3.34 7.17,3.84 5.32,4.49L7.75,6.9C9.28,6.46 10.97,6.2 12,6.2C17.35,6.2 21.17,8.74 21.61,9.05L23.64,7M2.81,2.81L1.39,4.22L3.78,6.61C2.08,7.37 0.55,8.35 0.36,8.48L2.39,10.53C2.56,10.37 4.54,9.1 7.21,8.24L9.79,10.82C7.94,11.39 6.43,12.3 6.3,12.38L8.33,14.43C8.75,14.13 10.27,13.15 12,12.65L18.39,19.04L19.8,17.63L2.81,2.81M12,16.5C11.14,16.5 10.37,16.85 9.78,17.41L12,19.63L14.22,17.41C13.63,16.85 12.86,16.5 12,16.5Z" />
+                        </Viewbox>
+                        <TextBlock Text="No Internet Connection"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,6" />
+                        <TextBlock Text="Searching and installing packages from the WinGet repository requires an active internet connection."
+                                   Foreground="{StaticResource BrushTextMuted}"
+                                   FontSize="11.5"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="340"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,14" />
+                        <Button Content="Retry Connection"
+                                Style="{StaticResource DarkButtonStyle}"
+                                Padding="14,4"
+                                FontSize="11.5"
+                                HorizontalAlignment="Center"
+                                Command="{Binding RefreshCommand}" />
+                    </StackPanel>
+                </Border>
             </Grid>
 
         </Grid>

@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         }
 
         ViewModel.SelectAllRequested = HandleSelectAll;
+        Closed += (s, e) => (DataContext as IDisposable)?.Dispose();
     }
 
     private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
