@@ -165,7 +165,7 @@ public partial class MainWindow : Window
             }
             else if (e.Key == Key.H || e.Key == Key.P)
             {
-                if (ViewModel.SelectedItem != null || ViewModel.SelectedItems.Count > 0)
+                if (ViewModel.SelectedTabIndex == 1 && (ViewModel.SelectedItem != null || ViewModel.SelectedItems.Count > 0))
                 {
                     ViewModel.TogglePinCommand.Execute(ViewModel.SelectedItem);
                     e.Handled = true;
@@ -206,6 +206,19 @@ public partial class MainWindow : Window
             if (ViewModel.SelectedItem != null && !QuickSearchBox.IsFocused && !OnlineSearchBox.IsFocused)
             {
                 ViewModel.ShowDetailsCommand.Execute(ViewModel.SelectedItem);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.Escape)
+        {
+            if (ViewModel.IsDetailsOpen)
+            {
+                ViewModel.CloseDetailsCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (ViewModel.IsDrawerOpen && !ViewModel.IsDrawerRunning)
+            {
+                ViewModel.CloseDrawerCommand.Execute(null);
                 e.Handled = true;
             }
         }

@@ -150,7 +150,8 @@
                       InputGestureText="Ctrl+H"
                       Style="{StaticResource DarkContextMenuItem}"
                       Command="{Binding TogglePinCommand}"
-                      CommandParameter="{Binding SelectedItem}">
+                      CommandParameter="{Binding SelectedItem}"
+                      Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}">
                 <MenuItem.Icon>
                     <Viewbox Width="16" Height="16" Stretch="Uniform">
                         <Path Fill="#CCCCCC" Data="M11.83,9L15,12.16C15,12.11 15,12.05 15,12A3,3 0 0,0 12,9C11.94,9 11.89,9 11.83,9M7.53,9.8L9.08,11.35C9.03,11.56 9,11.77 9,12A3,3 0 0,0 12,15C12.22,15 12.44,14.97 12.65,14.92L14.2,16.47C13.53,16.8 12.79,17 12,17A5,5 0 0,1 7,12C7,11.21 7.2,10.47 7.53,9.8M2,4.27L4.28,6.55L4.73,7C3.08,8.3 1.78,10 1,12C2.73,16.39 7,19.5 12,19.5C13.55,19.5 15.03,19.2 16.38,18.66L16.81,19.08L19.73,22L21,20.72L3.27,3L2,4.27Z" />
@@ -254,8 +255,13 @@
                 <MenuItem Header="{Binding UpgradeMenuHeader}" InputGestureText="Ctrl+U" Command="{Binding UpgradeCommand}" CommandParameter="{Binding SelectedItem}" />
                 <MenuItem Header="Upgrade _All Packages..." Command="{Binding UpgradeAllCommand}" />
                 <Separator Background="{StaticResource BrushBorder}" />
-                <MenuItem Header="{Binding HideMenuHeader}" InputGestureText="Ctrl+H" Command="{Binding TogglePinCommand}" CommandParameter="{Binding SelectedItem}" />
-                <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="{Binding HideMenuHeader}"
+                          InputGestureText="Ctrl+H"
+                          Command="{Binding TogglePinCommand}"
+                          CommandParameter="{Binding SelectedItem}"
+                          Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}" />
+                <Separator Background="{StaticResource BrushBorder}"
+                           Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}" />
                 <MenuItem Header="_Select All" InputGestureText="Ctrl+A" Command="{Binding SelectAllCommand}" />
                 <Separator Background="{StaticResource BrushBorder}" />
                 <MenuItem Header="View _Details..." InputGestureText="Enter" Command="{Binding ShowDetailsCommand}" CommandParameter="{Binding SelectedItem}" />
@@ -269,10 +275,12 @@
                 <MenuItem Header="_Installed Programs" InputGestureText="Ctrl+1" Click="OnViewInstalledClick" />
                 <MenuItem Header="_Available Updates" InputGestureText="Ctrl+2" Click="OnViewUpdatesClick" />
                 <MenuItem Header="_Discover &amp; Install" InputGestureText="Ctrl+3" Click="OnViewDiscoverClick" />
-                <Separator Background="{StaticResource BrushBorder}" />
+                <Separator Background="{StaticResource BrushBorder}"
+                           Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}" />
                 <MenuItem Header="Show _Hidden Updates"
                           IsCheckable="True"
-                          IsChecked="{Binding ShowPinnedUpdates, Mode=TwoWay}" />
+                          IsChecked="{Binding ShowPinnedUpdates, Mode=TwoWay}"
+                          Visibility="{Binding SelectedTabIndex, Converter={StaticResource Tab1Vis}}" />
                 <Separator Background="{StaticResource BrushBorder}" />
                 <MenuItem Header="_Refresh" InputGestureText="F5" Command="{Binding RefreshCommand}" />
             </MenuItem>
@@ -354,22 +362,6 @@
                                                    Foreground="{StaticResource BrushTextPrimary}"
                                                    FontSize="12"
                                                    VerticalAlignment="Center" />
-                                        <Border Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
-                                                Background="#333333"
-                                                BorderBrush="#444444"
-                                                BorderThickness="1"
-                                                CornerRadius="2"
-                                                Padding="4,0"
-                                                Height="15"
-                                                Margin="6,0,0,0"
-                                                VerticalAlignment="Center"
-                                                ToolTip="This update is hidden in winget">
-                                            <TextBlock Text="Hidden"
-                                                       Foreground="{StaticResource BrushTextMuted}"
-                                                       FontSize="10"
-                                                       FontWeight="SemiBold"
-                                                       VerticalAlignment="Center" />
-                                        </Border>
                                         <TextBlock Text="{Binding ArchitectureBadgeText}"
                                                    Foreground="{StaticResource BrushTextMuted}"
                                                    FontSize="11"
@@ -790,6 +782,12 @@
                                    FontSize="12.5"
                                    VerticalAlignment="Center" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="Keep Open"
+                                    Style="{StaticResource DarkButtonStyle}"
+                                    Padding="10,3"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding CancelAutoCloseCommand}"
+                                    Visibility="{Binding IsAutoClosing, Converter={StaticResource BoolToVis}}" />
                             <Button Content="Cancel"
                                     Style="{StaticResource DarkButtonStyle}"
                                     Padding="10,3"

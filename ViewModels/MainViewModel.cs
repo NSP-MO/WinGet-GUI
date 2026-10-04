@@ -153,6 +153,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDrawerRunning;
 
+    [ObservableProperty]
+    private bool _isAutoClosing;
+
+    private CancellationTokenSource? _autoCloseCts;
+
     // Details flyout properties
     [ObservableProperty]
     private bool _isDetailsOpen;
@@ -448,6 +453,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task TogglePinAsync(object? param)
     {
+        if (SelectedTabIndex != 1) return;
+
         var targetPackages = SelectedCount > 1 && SelectedItems.Count > 0
             ? SelectedItems.ToList()
             : (param as PackageItem ?? SelectedItem) != null
@@ -472,6 +479,14 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RunWingetPinOperationAsync(List<PackageItem> items, bool shouldPin)
     {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+
         string actionVerb = shouldPin ? "Hiding" : "Unhiding";
         string title = items.Count == 1
             ? $"{actionVerb} {items[0].Name}..."
@@ -535,6 +550,14 @@ public partial class MainViewModel : ObservableObject
             UpdatePinMenuHeader();
 
             DrawerOutput += $"\nCompleted: {successCount}/{items.Count} update(s) successfully {(shouldPin ? "hidden" : "unhidden")}.\n";
+
+            if (successCount == items.Count && items.Count > 0 && !_operationCts.Token.IsCancellationRequested)
+            {
+                IsDrawerRunning = false;
+                _operationCts?.Dispose();
+                _operationCts = null;
+                await ScheduleDrawerAutoCloseAsync(2);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -542,7 +565,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DrawerOutput += $"\nError executing pin operation: {ex.Message}\n";
+            DrawerOutput += $"\nError executing hide operation: {ex.Message}\n";
         }
         finally
         {
@@ -753,9 +776,29 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void CancelAutoClose()
+    {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+        DrawerOutput += "\n[Auto-close cancelled. Console will remain open.]\n";
+    }
+
+    [RelayCommand]
     public void CloseDrawer()
     {
         if (IsDrawerRunning) return;
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
         IsDrawerOpen = false;
     }
 
@@ -772,8 +815,53 @@ public partial class MainViewModel : ObservableObject
         _operationCts?.Cancel();
     }
 
+    private async Task ScheduleDrawerAutoCloseAsync(int delaySeconds = 2)
+    {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+
+        _autoCloseCts = new CancellationTokenSource();
+        var token = _autoCloseCts.Token;
+        IsAutoClosing = true;
+
+        try
+        {
+            for (int remaining = delaySeconds; remaining > 0; remaining--)
+            {
+                if (token.IsCancellationRequested) break;
+                DrawerOutput += $"\n[Operation completed successfully. Closing console in {remaining}s... (Click 'Keep Open' to dismiss)]\n";
+                await Task.Delay(1000, token);
+            }
+
+            if (!token.IsCancellationRequested && IsDrawerOpen && !IsDrawerRunning)
+            {
+                IsDrawerOpen = false;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancelled by user clicking Keep Open or manual action
+        }
+        finally
+        {
+            IsAutoClosing = false;
+        }
+    }
+
     private async Task RunWingetOperationAsync(string title, string args, bool refreshOnSuccess)
     {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+
         DrawerTitle = title;
         DrawerOutput = $"Starting operation: winget {args}\n\n";
         IsDrawerOpen = true;
@@ -812,6 +900,14 @@ public partial class MainViewModel : ObservableObject
             {
                 await RefreshAsync();
             }
+
+            if (exitCode == 0 && !_operationCts.Token.IsCancellationRequested)
+            {
+                IsDrawerRunning = false;
+                _operationCts?.Dispose();
+                _operationCts = null;
+                await ScheduleDrawerAutoCloseAsync(2);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -831,25 +927,36 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RunWingetBatchOperationAsync(string title, List<PackageItem> items)
     {
+        if (_autoCloseCts != null)
+        {
+            _autoCloseCts.Cancel();
+            _autoCloseCts.Dispose();
+            _autoCloseCts = null;
+        }
+        IsAutoClosing = false;
+
         DrawerTitle = title;
         IsDrawerOpen = true;
         IsDrawerRunning = true;
         _operationCts = new CancellationTokenSource();
+
+        bool allSucceeded = false;
 
         try
         {
             if (ElevationService.IsRunningAsAdministrator())
             {
                 DrawerOutput = $"Starting batch upgrade for {items.Count} packages (Administrator mode)...\n\n";
-                await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
+                var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
                 await RefreshAsync();
+                allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
             }
             else
             {
                 DrawerOutput = "Requesting Administrator privileges for unattended batch upgrade...\n";
                 try
                 {
-                    await ElevationService.RunElevatedBatchUpgradeAsync(
+                    var (succ, fail) = await ElevationService.RunElevatedBatchUpgradeAsync(
                         items,
                         line =>
                         {
@@ -861,6 +968,7 @@ public partial class MainViewModel : ObservableObject
                         _operationCts.Token);
 
                     await RefreshAsync();
+                    allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
                 }
                 catch (OperationCanceledException ex) when (ex.InnerException is System.ComponentModel.Win32Exception winEx && winEx.NativeErrorCode == 1223)
                 {
@@ -873,14 +981,23 @@ public partial class MainViewModel : ObservableObject
                     if (fallback == MessageBoxResult.Yes)
                     {
                         DrawerOutput += "\n[Notice] Proceeding without elevation...\n\n";
-                        await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
+                        var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
                         await RefreshAsync();
+                        allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
                     }
                     else
                     {
                         DrawerOutput += "\n[Notice] Batch upgrade aborted by user.\n";
                     }
                 }
+            }
+
+            if (allSucceeded)
+            {
+                IsDrawerRunning = false;
+                _operationCts?.Dispose();
+                _operationCts = null;
+                await ScheduleDrawerAutoCloseAsync(2);
             }
         }
         catch (OperationCanceledException)
@@ -899,7 +1016,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RunWingetBatchOperationCoreAsync(List<PackageItem> items, CancellationToken ct)
+    private async Task<(int Succeeded, int Failed)> RunWingetBatchOperationCoreAsync(List<PackageItem> items, CancellationToken ct)
     {
         int successCount = 0;
         int failedCount = 0;
@@ -943,5 +1060,7 @@ public partial class MainViewModel : ObservableObject
         DrawerOutput += "==================================================\n";
         DrawerOutput += $"Batch upgrade completed: {successCount} succeeded, {failedCount} failed.\n";
         DrawerOutput += "==================================================\n";
+
+        return (successCount, failedCount);
     }
 }

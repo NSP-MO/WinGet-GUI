@@ -27,7 +27,7 @@ public static class ElevationService
 
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
 
-    public static async Task RunElevatedBatchUpgradeAsync(
+    public static async Task<(int Succeeded, int Failed)> RunElevatedBatchUpgradeAsync(
         List<PackageItem> items,
         Action<string> onOutputLine,
         CancellationToken ct)
@@ -95,6 +95,9 @@ public static class ElevationService
         {
             listener.Stop();
         }
+
+        int totalSucceeded = 0;
+        int totalFailed = 0;
 
         using (client)
         using (var networkStream = client.GetStream())
@@ -173,6 +176,8 @@ public static class ElevationService
                     var parts = line.Split('\t');
                     string succ = parts.Length > 1 ? parts[1] : "0";
                     string fail = parts.Length > 2 ? parts[2] : "0";
+                    int.TryParse(succ, out totalSucceeded);
+                    int.TryParse(fail, out totalFailed);
                     onOutputLine("==================================================");
                     onOutputLine($"Batch upgrade completed: {succ} succeeded, {fail} failed.");
                     onOutputLine("==================================================");
@@ -185,6 +190,8 @@ public static class ElevationService
             await workerProcess.WaitForExitAsync(CancellationToken.None);
         }
         catch { }
+
+        return (totalSucceeded, totalFailed);
     }
 }
 
