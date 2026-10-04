@@ -154,6 +154,93 @@ public partial class MainViewModel : ObservableObject
     private bool _isDrawerRunning;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowIndeterminateRunner))]
+    private bool _hasDownloadProgress;
+
+    [ObservableProperty]
+    private string _downloadProgressText = string.Empty;
+
+    [ObservableProperty]
+    private double _downloadProgressValue;
+
+    [ObservableProperty]
+    private bool _isDownloadProgressIndeterminate = true;
+
+    public bool ShowIndeterminateRunner => IsDrawerRunning && !HasDownloadProgress;
+
+    partial void OnIsDrawerRunningChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowIndeterminateRunner));
+    }
+
+    private string _lastDrawerProgressLine = string.Empty;
+
+    private void UpdateDrawerProgressLine(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        string line = $"[Progress] {text}";
+
+        if (!string.IsNullOrEmpty(_lastDrawerProgressLine))
+        {
+            if (DrawerOutput.EndsWith(_lastDrawerProgressLine + "\n"))
+            {
+                DrawerOutput = DrawerOutput[..^(_lastDrawerProgressLine.Length + 1)] + line + "\n";
+                _lastDrawerProgressLine = line;
+                return;
+            }
+            if (DrawerOutput.EndsWith(_lastDrawerProgressLine + "\r\n"))
+            {
+                DrawerOutput = DrawerOutput[..^(_lastDrawerProgressLine.Length + 2)] + line + "\r\n";
+                _lastDrawerProgressLine = line;
+                return;
+            }
+        }
+
+        DrawerOutput += line + "\n";
+        _lastDrawerProgressLine = line;
+    }
+
+    private void UpdateDownloadProgress(DownloadProgressInfo progress)
+    {
+        if (progress.State == "Downloading")
+        {
+            HasDownloadProgress = true;
+            DownloadProgressText = progress.FormattedProgress;
+            DownloadProgressValue = progress.Percentage;
+            IsDownloadProgressIndeterminate = progress.TotalBytes <= 0;
+            OnPropertyChanged(nameof(ShowIndeterminateRunner));
+            UpdateDrawerProgressLine(progress.FormattedProgress);
+        }
+        else if (progress.State == "Verifying")
+        {
+            HasDownloadProgress = true;
+            DownloadProgressText = "Verifying installer hash...";
+            DownloadProgressValue = 100;
+            IsDownloadProgressIndeterminate = true;
+            OnPropertyChanged(nameof(ShowIndeterminateRunner));
+            UpdateDrawerProgressLine("Verifying installer hash...");
+        }
+        else if (progress.State == "Installing")
+        {
+            HasDownloadProgress = true;
+            DownloadProgressText = "Installing package...";
+            DownloadProgressValue = 0;
+            IsDownloadProgressIndeterminate = true;
+            OnPropertyChanged(nameof(ShowIndeterminateRunner));
+            _lastDrawerProgressLine = string.Empty;
+        }
+        else if (progress.State == "Completed")
+        {
+            HasDownloadProgress = false;
+            DownloadProgressText = string.Empty;
+            DownloadProgressValue = 0;
+            IsDownloadProgressIndeterminate = true;
+            OnPropertyChanged(nameof(ShowIndeterminateRunner));
+            _lastDrawerProgressLine = string.Empty;
+        }
+    }
+
+    [ObservableProperty]
     private bool _isAutoClosing;
 
     private CancellationTokenSource? _autoCloseCts;
@@ -1020,6 +1107,10 @@ public partial class MainViewModel : ObservableObject
         }
         IsAutoClosing = false;
         IsDrawerOpen = false;
+        HasDownloadProgress = false;
+        DownloadProgressText = string.Empty;
+        DownloadProgressValue = 0;
+        _lastDrawerProgressLine = string.Empty;
     }
 
     [RelayCommand]
@@ -1060,6 +1151,7 @@ public partial class MainViewModel : ObservableObject
             if (!token.IsCancellationRequested && IsDrawerOpen && !IsDrawerRunning)
             {
                 IsDrawerOpen = false;
+                HasDownloadProgress = false;
             }
         }
         catch (OperationCanceledException)
@@ -1086,6 +1178,10 @@ public partial class MainViewModel : ObservableObject
         DrawerOutput = $"Starting operation: winget {args}\n\n";
         IsDrawerOpen = true;
         IsDrawerRunning = true;
+        HasDownloadProgress = false;
+        DownloadProgressText = string.Empty;
+        DownloadProgressValue = 0;
+        _lastDrawerProgressLine = string.Empty;
 
         _operationCts = new CancellationTokenSource();
 
@@ -1096,6 +1192,12 @@ public partial class MainViewModel : ObservableObject
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     DrawerOutput += line + "\n";
+                });
+            }, progress =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    UpdateDownloadProgress(progress);
                 });
             }, _operationCts.Token);
 
@@ -1111,6 +1213,12 @@ public partial class MainViewModel : ObservableObject
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         DrawerOutput += line + "\n";
+                    });
+                }, progress =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        UpdateDownloadProgress(progress);
                     });
                 }, _operationCts.Token);
                 DrawerOutput += $"\nProcess completed with exit code: {exitCode}\n";
@@ -1166,7 +1274,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            DrawerOutput = $"Starting batch upgrade for {items.Count} packages (Administrator mode)...\n\n";
+            DrawerOutput = $"Starting batch upgrade for {items.Count} packages...\n\n";
             var (succ, fail) = await RunWingetBatchOperationCoreAsync(items, _operationCts.Token);
             await RefreshAsync();
             allSucceeded = fail == 0 && succ > 0 && !_operationCts.Token.IsCancellationRequested;
@@ -1210,6 +1318,11 @@ public partial class MainViewModel : ObservableObject
             DrawerOutput += $"[{i + 1}/{items.Count}] Upgrading {item.Name} ({item.Id}) to {targetVer}...\n";
             DrawerOutput += "--------------------------------------------------\n";
 
+            HasDownloadProgress = false;
+            DownloadProgressText = string.Empty;
+            DownloadProgressValue = 0;
+            _lastDrawerProgressLine = string.Empty;
+
             var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
             if (item.IsPinned)
             {
@@ -1221,6 +1334,12 @@ public partial class MainViewModel : ObservableObject
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     DrawerOutput += line + "\n";
+                });
+            }, progress =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    UpdateDownloadProgress(progress);
                 });
             }, ct);
 
