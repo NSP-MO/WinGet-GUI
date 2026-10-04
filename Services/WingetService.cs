@@ -165,7 +165,7 @@ public class WingetService
         var items = new List<PackageItem>();
 
         var registryTask = Task.Run(RegistryService.GetInstalledRegistryApps, ct);
-        var (exitCode, stdout, _) = await RunProcessAsync("winget", "upgrade --accept-source-agreements", ct);
+        var (exitCode, stdout, _) = await RunProcessAsync("winget", "upgrade --include-unknown --accept-source-agreements", ct);
         if (exitCode != 0 && string.IsNullOrWhiteSpace(stdout))
         {
             return items;

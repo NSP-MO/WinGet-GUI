@@ -296,7 +296,7 @@ public partial class MainViewModel : ObservableObject
         var item = param as PackageItem ?? SelectedItem;
         if (item == null) return;
 
-        var arg = $"upgrade --id \"{item.Id}\" --accept-source-agreements --accept-package-agreements";
+        var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
         await RunWingetOperationAsync($"Upgrading {item.Name} to {item.AvailableVersion}...", arg, true);
     }
 
@@ -317,7 +317,7 @@ public partial class MainViewModel : ObservableObject
 
         if (confirm != MessageBoxResult.Yes) return;
 
-        var arg = "upgrade --all --accept-source-agreements --accept-package-agreements";
+        var arg = "upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements";
         await RunWingetOperationAsync("Upgrading All Packages...", arg, true);
     }
 
@@ -554,6 +554,21 @@ public partial class MainViewModel : ObservableObject
             }, _operationCts.Token);
 
             DrawerOutput += $"\nProcess completed with exit code: {exitCode}\n";
+
+            // If upgrade failed because current version is unknown, automatically retry with --include-unknown
+            if (exitCode == -1978335189 && args.StartsWith("upgrade", StringComparison.OrdinalIgnoreCase) && !args.Contains("--include-unknown"))
+            {
+                DrawerOutput += "\n[Notice] Package version cannot be determined. Retrying with --include-unknown flag...\n\n";
+                var retryArgs = args + " --include-unknown";
+                exitCode = await _wingetService.StreamCommandAsync(retryArgs, line =>
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        DrawerOutput += line + "\n";
+                    });
+                }, _operationCts.Token);
+                DrawerOutput += $"\nProcess completed with exit code: {exitCode}\n";
+            }
 
             if (exitCode == 0 && refreshOnSuccess)
             {
