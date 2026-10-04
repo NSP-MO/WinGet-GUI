@@ -160,18 +160,86 @@ public class WingetService
         return items;
     }
 
+    public async Task<HashSet<string>> GetPinnedPackageIdsAsync(CancellationToken ct = default)
+    {
+        var pinnedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var (exitCode, stdout, _) = await RunProcessAsync("winget", "pin list", ct);
+            if (exitCode != 0 && string.IsNullOrWhiteSpace(stdout))
+            {
+                return pinnedIds;
+            }
+
+            var lines = stdout.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            if (lines.Length < 3) return pinnedIds;
+
+            int headerLineIdx = -1;
+            for (int i = 0; i < Math.Min(lines.Length, 10); i++)
+            {
+                if (lines[i].Contains("Name") && lines[i].Contains("Id"))
+                {
+                    headerLineIdx = i;
+                    break;
+                }
+            }
+
+            if (headerLineIdx == -1) return pinnedIds;
+
+            var header = lines[headerLineIdx];
+            int idIdx = header.IndexOf("Id", StringComparison.Ordinal);
+            int verIdx = header.IndexOf("Version", StringComparison.Ordinal);
+            if (idIdx <= 0) return pinnedIds;
+
+            for (int i = headerLineIdx + 2; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("---"))
+                {
+                    continue;
+                }
+
+                if (line.Length <= idIdx) continue;
+
+                string id = (verIdx > idIdx && line.Length >= verIdx)
+                    ? line[idIdx..verIdx].Trim()
+                    : line[idIdx..].Trim();
+
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    pinnedIds.Add(id);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore pin list failures
+        }
+        return pinnedIds;
+    }
+
     public async Task<List<PackageItem>> GetAvailableUpgradesAsync(CancellationToken ct = default)
     {
         var items = new List<PackageItem>();
 
         var registryTask = Task.Run(RegistryService.GetInstalledRegistryApps, ct);
-        var (exitCode, stdout, _) = await RunProcessAsync("winget", "upgrade --include-unknown --accept-source-agreements", ct);
+        var pinnedTask = GetPinnedPackageIdsAsync(ct);
+
+        var (exitCode, stdout, _) = await RunProcessAsync("winget", "upgrade --include-unknown --include-pinned --accept-source-agreements", ct);
+        if (exitCode != 0 && string.IsNullOrWhiteSpace(stdout))
+        {
+            var fallback = await RunProcessAsync("winget", "upgrade --include-unknown --accept-source-agreements", ct);
+            exitCode = fallback.ExitCode;
+            stdout = fallback.StdOut;
+        }
+
         if (exitCode != 0 && string.IsNullOrWhiteSpace(stdout))
         {
             return items;
         }
 
         var registryMap = await registryTask;
+        var pinnedIds = await pinnedTask;
         var lines = stdout.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         if (lines.Length < 3) return items;
 
@@ -256,7 +324,8 @@ public class WingetService
                 AvailableVersion = available,
                 Source = source,
                 HasUpdate = true,
-                IsInstalled = true
+                IsInstalled = true,
+                IsPinned = pinnedIds.Contains(id)
             };
 
             var regInfo = RegistryService.FindApp(registryMap, name, id);

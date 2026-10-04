@@ -55,9 +55,15 @@ public partial class PackageItem : ObservableObject
     [ObservableProperty]
     private bool _isInstalled;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PinBadgeText))]
+    private bool _isPinned;
+
     public bool IsWingetSource => !string.IsNullOrEmpty(Source) || (!Id.StartsWith("ARP\\", StringComparison.OrdinalIgnoreCase) && !Id.StartsWith("MSIX\\", StringComparison.OrdinalIgnoreCase));
 
     public string UpdateBadgeText => HasUpdate ? $"→ {AvailableVersion}" : string.Empty;
+
+    public string PinBadgeText => IsPinned ? "Pinned" : string.Empty;
 
     public string ArchitectureBadgeText
     {

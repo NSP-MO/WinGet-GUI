@@ -117,7 +117,7 @@ public static class ElevationService
             foreach (var item in items)
             {
                 string targetVer = !string.IsNullOrWhiteSpace(item.AvailableVersion) ? item.AvailableVersion : "latest";
-                await writer.WriteLineAsync($"ITEM\t{item.Id}\t{item.Name}\t{targetVer}");
+                await writer.WriteLineAsync($"ITEM\t{item.Id}\t{item.Name}\t{targetVer}\t{item.IsPinned}");
             }
             await writer.WriteLineAsync("EXECUTE");
 
@@ -190,7 +190,7 @@ public static class ElevationService
 
 public static class ElevatedWorkerService
 {
-    private record JobItem(string Id, string Name, string TargetVersion);
+    private record JobItem(string Id, string Name, string TargetVersion, bool IsPinned = false);
 
     public static async Task RunWorkerAsync(string[] args)
     {
@@ -236,7 +236,8 @@ public static class ElevatedWorkerService
                     var parts = line.Split('\t');
                     if (parts.Length >= 4)
                     {
-                        items.Add(new JobItem(parts[1], parts[2], parts[3]));
+                        bool isPinned = parts.Length >= 5 && bool.TryParse(parts[4], out var p) && p;
+                        items.Add(new JobItem(parts[1], parts[2], parts[3], isPinned));
                     }
                 }
             }
@@ -290,6 +291,10 @@ public static class ElevatedWorkerService
                 }
 
                 var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+                if (item.IsPinned)
+                {
+                    arg += " --include-pinned";
+                }
                 var psi = new ProcessStartInfo
                 {
                     FileName = wingetPath,

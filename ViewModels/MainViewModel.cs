@@ -92,6 +92,23 @@ public partial class MainViewModel : ObservableObject
     private string _updatesTabTitle = "Updates";
 
     [ObservableProperty]
+    private bool _showPinnedUpdates;
+
+    partial void OnShowPinnedUpdatesChanged(bool value)
+    {
+        FilteredUpgradePackages.Refresh();
+        UpdateUpgradesCountAndTitle();
+        UpdateStatusSummary();
+    }
+
+    private void UpdateUpgradesCountAndTitle()
+    {
+        var visibleCount = UpgradePackages.Count(u => ShowPinnedUpdates || !u.IsPinned);
+        UpgradesCount = visibleCount;
+        UpdatesTabTitle = $"Updates ({UpgradesCount})";
+    }
+
+    [ObservableProperty]
     private string _wingetVersion = string.Empty;
 
     // Operation drawer / modal properties
@@ -154,8 +171,14 @@ public partial class MainViewModel : ObservableObject
 
     private bool FilterUpgradePredicate(object obj)
     {
-        if (string.IsNullOrWhiteSpace(SearchText)) return true;
         if (obj is not PackageItem item) return false;
+
+        if (!ShowPinnedUpdates && item.IsPinned)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(SearchText)) return true;
 
         var term = SearchText.Trim();
         return item.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
@@ -213,10 +236,8 @@ public partial class MainViewModel : ObservableObject
             }
 
             InstalledCount = InstalledPackages.Count;
-            UpgradesCount = UpgradePackages.Count;
-
             InstalledTabTitle = $"Installed ({InstalledCount})";
-            UpdatesTabTitle = $"Updates ({UpgradesCount})";
+            UpdateUpgradesCountAndTitle();
 
             UpdateStatusSummary();
         }
@@ -353,6 +374,10 @@ public partial class MainViewModel : ObservableObject
         {
             var item = targetPackages[0];
             var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+            if (item.IsPinned)
+            {
+                arg += " --include-pinned";
+            }
             await RunWingetOperationAsync($"Upgrading {item.Name} to {item.AvailableVersion}...", arg, true);
         }
         else
@@ -386,7 +411,7 @@ public partial class MainViewModel : ObservableObject
 
         if (confirm != MessageBoxResult.Yes) return;
 
-        var packagesToUpgrade = UpgradePackages.ToList();
+        var packagesToUpgrade = UpgradePackages.Where(p => ShowPinnedUpdates || !p.IsPinned).ToList();
         await RunWingetBatchOperationAsync($"Upgrading All ({packagesToUpgrade.Count}) Packages...", packagesToUpgrade);
     }
 
@@ -753,6 +778,10 @@ public partial class MainViewModel : ObservableObject
             DrawerOutput += "--------------------------------------------------\n";
 
             var arg = $"upgrade --id \"{item.Id}\" --include-unknown --accept-source-agreements --accept-package-agreements";
+            if (item.IsPinned)
+            {
+                arg += " --include-pinned";
+            }
 
             var exitCode = await _wingetService.StreamCommandAsync(arg, line =>
             {

@@ -214,11 +214,22 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <ContentPresenter Grid.Column="0"
-                                      ContentSource="Icon"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Center"
-                                      Width="16" Height="16"/>
+                    <Grid Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <ContentPresenter ContentSource="Icon"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Center"
+                                          Width="16" Height="16"/>
+                        <Path x:Name="CheckMark"
+                              Data="M 1.5,5.5 L 4.5,8.5 L 11,2"
+                              Stroke="{StaticResource BrushAccent}"
+                              StrokeThickness="2"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Visibility="Collapsed"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center"/>
+                    </Grid>
 
                     <ContentPresenter Grid.Column="1"
                                       ContentSource="Header"
@@ -235,6 +246,9 @@
                 </Grid>
             </Border>
             <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                </Trigger>
                 <Trigger Property="IsHighlighted" Value="True">
                     <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushCardHover}"/>
                     <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>

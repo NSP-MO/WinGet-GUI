@@ -257,6 +257,10 @@
                 <MenuItem Header="_Available Updates" InputGestureText="Ctrl+2" Click="OnViewUpdatesClick" />
                 <MenuItem Header="_Discover &amp; Install" InputGestureText="Ctrl+3" Click="OnViewDiscoverClick" />
                 <Separator Background="{StaticResource BrushBorder}" />
+                <MenuItem Header="Show _Pinned Updates"
+                          IsCheckable="True"
+                          IsChecked="{Binding ShowPinnedUpdates, Mode=TwoWay}" />
+                <Separator Background="{StaticResource BrushBorder}" />
                 <MenuItem Header="_Refresh" InputGestureText="F5" Command="{Binding RefreshCommand}" />
             </MenuItem>
             <MenuItem Header="_Help">
@@ -450,6 +454,22 @@
                                                    Foreground="{StaticResource BrushTextPrimary}"
                                                    FontSize="12"
                                                    VerticalAlignment="Center" />
+                                        <Border Visibility="{Binding IsPinned, Converter={StaticResource BoolToVis}}"
+                                                Background="#333333"
+                                                BorderBrush="#444444"
+                                                BorderThickness="1"
+                                                CornerRadius="2"
+                                                Padding="4,0"
+                                                Height="15"
+                                                Margin="6,0,0,0"
+                                                VerticalAlignment="Center"
+                                                ToolTip="This package is pinned in winget">
+                                            <TextBlock Text="Pinned"
+                                                       Foreground="{StaticResource BrushTextMuted}"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
                                     </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
